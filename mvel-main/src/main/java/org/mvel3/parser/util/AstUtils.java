@@ -108,36 +108,31 @@ public class AstUtils {
     }
 
     private static Expression transformHalfBinaryArg(TokenRange tokenRange, Expression scope, Expression name, Expression expr, boolean nullSafe) {
-        if (expr instanceof HalfBinaryExpr) {
-            Expression left = scope == null ? name  : (nullSafe ? new NullSafeFieldAccessExpr(scope, null, name.asNameExpr().getName()) : new FieldAccessExpr(scope, null, name.asNameExpr().getName()));
-            return new BinaryExpr( tokenRange, left, (( HalfBinaryExpr ) expr).getRight(), (( HalfBinaryExpr ) expr).getOperator().toBinaryExprOperator() );
-        }
-        if (expr instanceof EnclosedExpr) {
-            return transformHalfBinaryArg( tokenRange, scope, name, (( EnclosedExpr ) expr).getInner(), nullSafe );
-        }
-        if (expr instanceof BinaryExpr) {
-            BinaryExpr binary = (BinaryExpr) expr;
-            Expression rewrittenLeft = transformHalfBinaryArg( tokenRange, scope, name, binary.getLeft(), nullSafe );
-            Expression rewrittenRight = binary.getRight() instanceof HalfBinaryExpr && !(binary.getLeft() instanceof EnclosedExpr) ?
-                    binary.getRight() :
-                    transformHalfBinaryArg( tokenRange, scope, name, binary.getRight(), nullSafe );
-            rewrittenRight.setParentNode( rewrittenLeft );
-            return new BinaryExpr( tokenRange, rewrittenLeft, rewrittenRight, binary.getOperator() );
-        }
-        throw new IllegalStateException();
+        return switch (expr) {
+            case HalfBinaryExpr halfBinary -> {
+                Expression left = scope == null ? name : (nullSafe ? new NullSafeFieldAccessExpr(scope, null, name.asNameExpr().getName()) : new FieldAccessExpr(scope, null, name.asNameExpr().getName()));
+                yield new BinaryExpr(tokenRange, left, halfBinary.getRight(), halfBinary.getOperator().toBinaryExprOperator());
+            }
+            case EnclosedExpr enclosed -> transformHalfBinaryArg(tokenRange, scope, name, enclosed.getInner(), nullSafe);
+            case BinaryExpr binary -> {
+                Expression rewrittenLeft = transformHalfBinaryArg(tokenRange, scope, name, binary.getLeft(), nullSafe);
+                Expression rewrittenRight = binary.getRight() instanceof HalfBinaryExpr && !(binary.getLeft() instanceof EnclosedExpr) ?
+                        binary.getRight() :
+                        transformHalfBinaryArg(tokenRange, scope, name, binary.getRight(), nullSafe);
+                rewrittenRight.setParentNode(rewrittenLeft);
+                yield new BinaryExpr(tokenRange, rewrittenLeft, rewrittenRight, binary.getOperator());
+            }
+            default -> throw new IllegalStateException();
+        };
     }
 
     private static boolean isHalfBinaryArg(Expression expr) {
-        if (expr instanceof HalfBinaryExpr) {
-            return true;
-        }
-        if (expr instanceof BinaryExpr) {
-            return isHalfBinaryArg( (( BinaryExpr ) expr).getLeft() );
-        }
-        if (expr instanceof EnclosedExpr) {
-            return isHalfBinaryArg( (( EnclosedExpr ) expr).getInner() );
-        }
-        return false;
+        return switch (expr) {
+            case HalfBinaryExpr _ -> true;
+            case BinaryExpr binary -> isHalfBinaryArg(binary.getLeft());
+            case EnclosedExpr enclosed -> isHalfBinaryArg(enclosed.getInner());
+            default -> false;
+        };
     }
 
     public static DrlxExpression parseBindingAfterAndOr(TokenRange tokenRange, DrlxExpression leftExpr, Expression rightExpr) {
@@ -149,22 +144,23 @@ public class AstUtils {
         // and this method combine these 2 expressions into
         //     DrlxExpression( BinaryExpr( DrlxExpression("$n", "name == \"Mario\""), AND, DrlxExpression("$a", "age > 20") ) )
 
-        if (leftExpr.getExpr() instanceof BinaryExpr) {
-            BinaryExpr.Operator operator = ((BinaryExpr)leftExpr.getExpr()).getOperator();
+        if (leftExpr.getExpr() instanceof BinaryExpr leftBinary) {
+            BinaryExpr.Operator operator = leftBinary.getOperator();
             if (isLogicalOperator(operator)) {
-                if (((BinaryExpr) leftExpr.getExpr()).getRight() instanceof NameExpr) {
-                    DrlxExpression newLeft = new DrlxExpression(leftExpr.getBind(), ((BinaryExpr) leftExpr.getExpr()).getLeft());
-                    SimpleName rightName = ((NameExpr) ((BinaryExpr) leftExpr.getExpr()).getRight()).getName();
+                if (leftBinary.getRight() instanceof NameExpr rightNameExpr) {
+                    DrlxExpression newLeft = new DrlxExpression(leftExpr.getBind(), leftBinary.getLeft());
+                    SimpleName rightName = rightNameExpr.getName();
                     DrlxExpression newRight = new DrlxExpression(rightName, rightExpr);
                     return new DrlxExpression(null, new BinaryExpr(tokenRange, newLeft, newRight, operator));
                 }
 
-                if (((BinaryExpr) leftExpr.getExpr()).getRight() instanceof DrlxExpression) {
-                    Expression first = ((BinaryExpr) leftExpr.getExpr()).getLeft();
-                    DrlxExpression innerRight = parseBindingAfterAndOr(tokenRange, (DrlxExpression) ((BinaryExpr) leftExpr.getExpr()).getRight(), rightExpr);
-                    Expression second = ((BinaryExpr) innerRight.getExpr()).getLeft();
-                    Expression third = ((BinaryExpr) innerRight.getExpr()).getRight();
-                    BinaryExpr.Operator innerRightOperator = ((BinaryExpr) innerRight.getExpr()).getOperator();
+                if (leftBinary.getRight() instanceof DrlxExpression rightDrlx) {
+                    Expression first = leftBinary.getLeft();
+                    DrlxExpression innerRight = parseBindingAfterAndOr(tokenRange, rightDrlx, rightExpr);
+                    BinaryExpr innerRightBinary = (BinaryExpr) innerRight.getExpr();
+                    Expression second = innerRightBinary.getLeft();
+                    Expression third = innerRightBinary.getRight();
+                    BinaryExpr.Operator innerRightOperator = innerRightBinary.getOperator();
                     if (operator == BinaryExpr.Operator.OR && innerRightOperator == BinaryExpr.Operator.AND) {
                         return new DrlxExpression(null, new BinaryExpr(tokenRange, first, new BinaryExpr(tokenRange, second, third, innerRightOperator), operator));
                     } else {
