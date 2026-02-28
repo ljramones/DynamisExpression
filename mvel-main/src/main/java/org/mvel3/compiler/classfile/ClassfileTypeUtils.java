@@ -186,10 +186,40 @@ public final class ClassfileTypeUtils {
     }
 
     /**
-     * True if this type is a known boxed wrapper type.
+     * True if this type name is a known boxed wrapper type.
      */
     public static boolean isBoxedType(String typeName) {
         return UNBOXING_TYPES.containsKey(typeName);
+    }
+
+    /**
+     * True if this JavaParser Type is a known boxed wrapper type (Integer, Long, Double, etc.).
+     */
+    public static boolean isBoxedWrapperType(Type type) {
+        if (!type.isClassOrInterfaceType()) return false;
+        return UNBOXING_TYPES.containsKey(type.asClassOrInterfaceType().getNameWithScope());
+    }
+
+    /**
+     * Convert a boxed wrapper Type to its primitive equivalent as a JavaParser PrimitiveType.
+     * Returns null if the type is not a recognized boxed wrapper.
+     */
+    public static PrimitiveType toPrimitiveType(Type boxedType) {
+        if (!boxedType.isClassOrInterfaceType()) return null;
+        String name = boxedType.asClassOrInterfaceType().getNameWithScope();
+        String primName = primNameForBoxed(name);
+        if (primName == null) return null;
+        return switch (primName) {
+            case "int" -> PrimitiveType.intType();
+            case "long" -> PrimitiveType.longType();
+            case "double" -> PrimitiveType.doubleType();
+            case "float" -> PrimitiveType.floatType();
+            case "boolean" -> PrimitiveType.booleanType();
+            case "byte" -> PrimitiveType.byteType();
+            case "char" -> PrimitiveType.charType();
+            case "short" -> PrimitiveType.shortType();
+            default -> null;
+        };
     }
 
     /**

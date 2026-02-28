@@ -53,21 +53,6 @@ public final class ClassfileEvaluatorEmitter {
 
         BlockStmt body = method.getBody().get();
 
-        // Phase 1 restriction: all variable declarations must use primitive types or String.
-        // Boxed types (Integer, Double, etc.) require auto-unboxing in arithmetic contexts,
-        // which is not yet implemented. Reject them to avoid VerifyErrors.
-        for (Statement stmt : body.getStatements()) {
-            if (stmt instanceof ExpressionStmt es
-                    && es.getExpression() instanceof VariableDeclarationExpr vde) {
-                for (var decl : vde.getVariables()) {
-                    Type type = decl.getType();
-                    if (!type.isPrimitiveType() && !isStringType(type)) {
-                        return false;
-                    }
-                }
-            }
-        }
-
         // Must have at least one return statement (expressions always have a return)
         boolean hasReturn = false;
         for (Statement stmt : body.getStatements()) {
@@ -274,11 +259,39 @@ public final class ClassfileEvaluatorEmitter {
             for (var declarator : vde.getVariables()) {
                 Type varType = declarator.getType();
                 String varName = declarator.getNameAsString();
-                int slot = slots.allocate(varName, varType);
+
+                // Determine the slot type:
+                // 1. Boxed wrappers (Integer, etc.) → unbox to primitive equivalent
+                // 2. var (VarType) → infer from initializer expression
+                // 3. Primitives/String → use as-is
+                // 4. Other reference types (Foo, List, Map, etc.) → REFERENCE slot
+                Type slotType = varType;
+                boolean needsUnbox = false;
+
+                if (ClassfileTypeUtils.isBoxedWrapperType(varType)) {
+                    slotType = ClassfileTypeUtils.toPrimitiveType(varType);
+                    needsUnbox = true;
+                } else if (varType.isVarType() && declarator.getInitializer().isPresent()) {
+                    // var: infer type from initializer
+                    slotType = inferTypeFromExpression(declarator.getInitializer().get(), slots);
+                    // If inferred as boxed wrapper, unbox
+                    if (ClassfileTypeUtils.isBoxedWrapperType(slotType)) {
+                        needsUnbox = true;
+                        slotType = ClassfileTypeUtils.toPrimitiveType(slotType);
+                    }
+                }
+
+                int slot = slots.allocate(varName, slotType);
 
                 if (declarator.getInitializer().isPresent()) {
                     emitExpression(code, declarator.getInitializer().get(), slots, params);
-                    code.storeLocal(ClassfileTypeUtils.toTypeKind(varType), slot);
+                    if (needsUnbox) {
+                        String boxedName = varType.isVarType()
+                                ? inferBoxedNameFromExpression(declarator.getInitializer().get())
+                                : varType.asClassOrInterfaceType().getNameWithScope();
+                        ClassfileTypeUtils.emitUnboxing(code, boxedName);
+                    }
+                    code.storeLocal(ClassfileTypeUtils.toTypeKind(slotType), slot);
                 }
             }
         } else if (expr instanceof AssignExpr ae) {
@@ -442,6 +455,17 @@ public final class ClassfileEvaluatorEmitter {
                             "Cannot negate type: " + kind);
                 }
             }
+            case BITWISE_COMPLEMENT -> {
+                // ~expr → emit expr, XOR with -1
+                emitExpression(code, ue.getExpression(), slots, params);
+                TypeKind kind = inferTypeKind(ue.getExpression(), slots);
+                switch (kind) {
+                    case INT -> { code.iconst_m1(); code.ixor(); }
+                    case LONG -> { code.ldc(-1L); code.lxor(); }
+                    default -> throw new UnsupportedOperationException(
+                            "Cannot bitwise-complement type: " + kind);
+                }
+            }
             default -> throw new UnsupportedOperationException(
                     "Unsupported unary operator: " + ue.getOperator());
         }
@@ -480,13 +504,18 @@ public final class ClassfileEvaluatorEmitter {
         TypeKind leftKind = inferTypeKind(be.getLeft(), slots);
         TypeKind rightKind = inferTypeKind(be.getRight(), slots);
 
-        // For now, handle int arithmetic (Phase 1 target)
         switch (op) {
             case PLUS -> emitAdd(code, leftKind);
             case MINUS -> emitSub(code, leftKind);
             case MULTIPLY -> emitMul(code, leftKind);
             case DIVIDE -> emitDiv(code, leftKind);
             case REMAINDER -> emitRem(code, leftKind);
+            case BINARY_AND -> emitBitwiseAnd(code, leftKind);
+            case BINARY_OR -> emitBitwiseOr(code, leftKind);
+            case XOR -> emitBitwiseXor(code, leftKind);
+            case LEFT_SHIFT -> emitShl(code, leftKind);
+            case SIGNED_RIGHT_SHIFT -> emitShr(code, leftKind);
+            case UNSIGNED_RIGHT_SHIFT -> emitUshr(code, leftKind);
             default -> throw new UnsupportedOperationException(
                     "Unsupported binary operator: " + op);
         }
@@ -626,6 +655,56 @@ public final class ClassfileEvaluatorEmitter {
         }
     }
 
+    // ── Bitwise helpers ──────────────────────────────────────────────────
+
+    private static void emitBitwiseAnd(CodeBuilder code, TypeKind kind) {
+        switch (kind) {
+            case INT -> code.iand();
+            case LONG -> code.land();
+            default -> throw new UnsupportedOperationException("Cannot bitwise-AND type: " + kind);
+        }
+    }
+
+    private static void emitBitwiseOr(CodeBuilder code, TypeKind kind) {
+        switch (kind) {
+            case INT -> code.ior();
+            case LONG -> code.lor();
+            default -> throw new UnsupportedOperationException("Cannot bitwise-OR type: " + kind);
+        }
+    }
+
+    private static void emitBitwiseXor(CodeBuilder code, TypeKind kind) {
+        switch (kind) {
+            case INT -> code.ixor();
+            case LONG -> code.lxor();
+            default -> throw new UnsupportedOperationException("Cannot bitwise-XOR type: " + kind);
+        }
+    }
+
+    private static void emitShl(CodeBuilder code, TypeKind kind) {
+        switch (kind) {
+            case INT -> code.ishl();
+            case LONG -> code.lshl();
+            default -> throw new UnsupportedOperationException("Cannot left-shift type: " + kind);
+        }
+    }
+
+    private static void emitShr(CodeBuilder code, TypeKind kind) {
+        switch (kind) {
+            case INT -> code.ishr();
+            case LONG -> code.lshr();
+            default -> throw new UnsupportedOperationException("Cannot right-shift type: " + kind);
+        }
+    }
+
+    private static void emitUshr(CodeBuilder code, TypeKind kind) {
+        switch (kind) {
+            case INT -> code.iushr();
+            case LONG -> code.lushr();
+            default -> throw new UnsupportedOperationException("Cannot unsigned-right-shift type: " + kind);
+        }
+    }
+
     // ── Method call emission ──────────────────────────────────────────────
 
     private static <C, W, O> void emitMethodCallExpr(
@@ -667,6 +746,18 @@ public final class ClassfileEvaluatorEmitter {
             }
         }
 
+        // Static method calls on java.lang.Math
+        if (mce.getScope().isPresent() && isStaticMathScope(mce.getScope().get())) {
+            emitMathStaticCall(code, mce, slots, params);
+            return;
+        }
+
+        // Static method calls on org.mvel3.MVEL (putMap, setList)
+        if (mce.getScope().isPresent() && isStaticMvelScope(mce.getScope().get())) {
+            emitMvelStaticCall(code, mce, slots, params);
+            return;
+        }
+
         // POJO getter pattern: __context.getXxx()
         if (mce.getScope().isPresent() && mce.getArguments().isEmpty()) {
             Expression scope = mce.getScope().get();
@@ -683,8 +774,119 @@ public final class ClassfileEvaluatorEmitter {
             }
         }
 
+        // POJO setter/instance method with arguments: scope.methodName(args)
+        if (mce.getScope().isPresent()) {
+            Expression scope = mce.getScope().get();
+            if (scope instanceof NameExpr scopeName && slots.contains(scopeName.getNameAsString())) {
+                Type scopeType = slots.type(scopeName.getNameAsString());
+                ClassDesc scopeDesc = ClassfileTypeUtils.toClassDesc(scopeType);
+
+                // Emit scope (receiver)
+                emitExpression(code, scope, slots, params);
+
+                // Build argument descriptors and emit arguments
+                ClassDesc[] argDescs = new ClassDesc[mce.getArguments().size()];
+                for (int i = 0; i < mce.getArguments().size(); i++) {
+                    Expression arg = mce.getArgument(i);
+                    emitExpression(code, arg, slots, params);
+                    TypeKind argKind = inferTypeKind(arg, slots);
+                    // Box primitives to Object for generic methods
+                    if (argKind != TypeKind.REFERENCE) {
+                        ClassfileTypeUtils.emitBoxing(code, argKind);
+                    }
+                    argDescs[i] = CD_Object;
+                }
+
+                // Infer return type
+                ClassDesc returnDesc = inferMethodReturnType(mce);
+                code.invokevirtual(scopeDesc, methodName,
+                        MethodTypeDesc.of(returnDesc, argDescs));
+                return;
+            }
+        }
+
         throw new UnsupportedOperationException(
                 "Unsupported method call: " + mce);
+    }
+
+    private static final ClassDesc CD_Math = ClassDesc.of("java.lang.Math");
+    private static final ClassDesc CD_MVEL = ClassDesc.of("org.mvel3.MVEL");
+
+    /**
+     * Emit a static method call on java.lang.Math.
+     * All Math methods take double args and return double.
+     */
+    private static <C, W, O> void emitMathStaticCall(
+            CodeBuilder code,
+            MethodCallExpr mce,
+            LocalSlotTable slots,
+            CompilerParameters<C, W, O> params) {
+
+        String methodName = mce.getNameAsString();
+        int argCount = mce.getArguments().size();
+
+        // Emit arguments, widening to double where needed
+        for (Expression arg : mce.getArguments()) {
+            emitExpression(code, arg, slots, params);
+            TypeKind kind = inferTypeKind(arg, slots);
+            if (kind == TypeKind.INT) {
+                code.i2d();
+            } else if (kind == TypeKind.FLOAT) {
+                code.f2d();
+            } else if (kind == TypeKind.LONG) {
+                code.l2d();
+            }
+        }
+
+        // Build method type: all doubles in, double out
+        ClassDesc[] argDescs = new ClassDesc[argCount];
+        java.util.Arrays.fill(argDescs, CD_double);
+        code.invokestatic(CD_Math, methodName, MethodTypeDesc.of(CD_double, argDescs));
+    }
+
+    /**
+     * Emit a static method call on org.mvel3.MVEL (putMap, setList).
+     */
+    private static <C, W, O> void emitMvelStaticCall(
+            CodeBuilder code,
+            MethodCallExpr mce,
+            LocalSlotTable slots,
+            CompilerParameters<C, W, O> params) {
+
+        String methodName = mce.getNameAsString();
+
+        if ("putMap".equals(methodName)) {
+            // MVEL.putMap(Map context, String key, Object value) → Object
+            // Arg 0: Map (reference, no boxing needed)
+            emitExpression(code, mce.getArgument(0), slots, params);
+            // Arg 1: String key (reference, no boxing needed)
+            emitExpression(code, mce.getArgument(1), slots, params);
+            // Arg 2: Object value (box if primitive)
+            emitExpression(code, mce.getArgument(2), slots, params);
+            TypeKind valKind = inferTypeKind(mce.getArgument(2), slots);
+            if (valKind != TypeKind.REFERENCE) {
+                ClassfileTypeUtils.emitBoxing(code, valKind);
+            }
+            code.invokestatic(CD_MVEL, "putMap",
+                    MethodTypeDesc.of(CD_Object, CD_Map, CD_String, CD_Object));
+        } else if ("setList".equals(methodName)) {
+            // MVEL.setList(List context, int index, Object value) → Object
+            // Arg 0: List (reference)
+            emitExpression(code, mce.getArgument(0), slots, params);
+            // Arg 1: int index (no boxing — stays as int)
+            emitExpression(code, mce.getArgument(1), slots, params);
+            // Arg 2: Object value (box if primitive)
+            emitExpression(code, mce.getArgument(2), slots, params);
+            TypeKind valKind = inferTypeKind(mce.getArgument(2), slots);
+            if (valKind != TypeKind.REFERENCE) {
+                ClassfileTypeUtils.emitBoxing(code, valKind);
+            }
+            code.invokestatic(CD_MVEL, "setList",
+                    MethodTypeDesc.of(CD_Object, CD_List, CD_int, CD_Object));
+        } else {
+            throw new UnsupportedOperationException(
+                    "Unsupported MVEL static method: " + methodName);
+        }
     }
 
     // ── Field access emission ─────────────────────────────────────────────
@@ -695,11 +897,27 @@ public final class ClassfileEvaluatorEmitter {
             LocalSlotTable slots,
             CompilerParameters<C, W, O> params) {
 
+        // FieldAccessExpr is used as a class-name scope for static method calls
+        // (e.g. java.lang.Math, org.mvel3.MVEL). These are NOT emitted as
+        // field loads — the parent MethodCallExpr handles the invokestatic.
+        // If we reach this point, the FieldAccessExpr is being used as a standalone
+        // expression which shouldn't happen for class-name references.
         throw new UnsupportedOperationException(
                 "Field access not yet supported: " + fae);
     }
 
     // ── Assignment emission ───────────────────────────────────────────────
+
+    private static boolean isSupportedAssign(AssignExpr ae) {
+        if (!(ae.getTarget() instanceof NameExpr)) return false;
+        if (!isSupportedExpression(ae.getValue())) return false;
+        return switch (ae.getOperator()) {
+            case ASSIGN, PLUS, MINUS, MULTIPLY, DIVIDE, REMAINDER,
+                 BINARY_AND, BINARY_OR, XOR,
+                 LEFT_SHIFT, SIGNED_RIGHT_SHIFT, UNSIGNED_RIGHT_SHIFT -> true;
+            default -> false;
+        };
+    }
 
     private static <C, W, O> void emitAssignExpr(
             CodeBuilder code,
@@ -715,13 +933,36 @@ public final class ClassfileEvaluatorEmitter {
                     "Unsupported assignment target: " + ae.getTarget());
         }
 
-        emitExpression(code, ae.getValue(), slots, params);
-
-        if (slots.contains(targetName)) {
-            slots.storeVar(code, targetName);
-        } else {
+        if (!slots.contains(targetName)) {
             throw new UnsupportedOperationException(
                     "Assignment to unknown variable: " + targetName);
+        }
+
+        if (ae.getOperator() == AssignExpr.Operator.ASSIGN) {
+            // Simple assignment: a = expr
+            emitExpression(code, ae.getValue(), slots, params);
+            slots.storeVar(code, targetName);
+        } else {
+            // Compound assignment: a op= expr → load a, emit expr, op, store a
+            TypeKind kind = slots.typeKind(targetName);
+            slots.loadVar(code, targetName);
+            emitExpression(code, ae.getValue(), slots, params);
+            switch (ae.getOperator()) {
+                case PLUS -> emitAdd(code, kind);
+                case MINUS -> emitSub(code, kind);
+                case MULTIPLY -> emitMul(code, kind);
+                case DIVIDE -> emitDiv(code, kind);
+                case REMAINDER -> emitRem(code, kind);
+                case BINARY_AND -> emitBitwiseAnd(code, kind);
+                case BINARY_OR -> emitBitwiseOr(code, kind);
+                case XOR -> emitBitwiseXor(code, kind);
+                case LEFT_SHIFT -> emitShl(code, kind);
+                case SIGNED_RIGHT_SHIFT -> emitShr(code, kind);
+                case UNSIGNED_RIGHT_SHIFT -> emitUshr(code, kind);
+                default -> throw new UnsupportedOperationException(
+                        "Unsupported compound assignment: " + ae.getOperator());
+            }
+            slots.storeVar(code, targetName);
         }
     }
 
@@ -753,15 +994,14 @@ public final class ClassfileEvaluatorEmitter {
             case VariableDeclarationExpr vde ->
                     vde.getVariables().stream().allMatch(v ->
                             v.getInitializer().map(ClassfileEvaluatorEmitter::isSupportedExpression).orElse(true));
-            case AssignExpr ae -> ae.getOperator() == AssignExpr.Operator.ASSIGN
-                    && ae.getTarget() instanceof NameExpr && isSupportedExpression(ae.getValue());
+            case AssignExpr ae -> isSupportedAssign(ae);
             default -> false;
         };
     }
 
     private static boolean isSupportedUnary(UnaryExpr ue) {
         return switch (ue.getOperator()) {
-            case LOGICAL_COMPLEMENT, MINUS -> isSupportedExpression(ue.getExpression());
+            case LOGICAL_COMPLEMENT, MINUS, BITWISE_COMPLEMENT -> isSupportedExpression(ue.getExpression());
             default -> false;
         };
     }
@@ -773,16 +1013,51 @@ public final class ClassfileEvaluatorEmitter {
         return switch (be.getOperator()) {
             case PLUS, MINUS, MULTIPLY, DIVIDE, REMAINDER,
                  GREATER, LESS, GREATER_EQUALS, LESS_EQUALS,
-                 EQUALS, NOT_EQUALS, AND, OR -> true;
+                 EQUALS, NOT_EQUALS, AND, OR,
+                 BINARY_AND, BINARY_OR, XOR,
+                 LEFT_SHIFT, SIGNED_RIGHT_SHIFT, UNSIGNED_RIGHT_SHIFT -> true;
+            // String concatenation (+) is not yet supported in the emitter
+            // (requires StringBuilder/StringConcatFactory). This is caught at emit
+            // time by the arithmetic emitters which reject REFERENCE type.
             default -> false;
         };
     }
 
     private static boolean isSupportedMethodCall(MethodCallExpr mce) {
-        // Map.get(), List.get(), POJO getters (no-arg methods on scope)
         if (mce.getScope().isEmpty()) return false;
-        if (!isSupportedExpression(mce.getScope().get())) return false;
-        return mce.getArguments().stream().allMatch(ClassfileEvaluatorEmitter::isSupportedExpression);
+        if (!mce.getArguments().stream().allMatch(ClassfileEvaluatorEmitter::isSupportedExpression)) {
+            return false;
+        }
+
+        Expression scope = mce.getScope().get();
+
+        // Static methods on java.lang.Math (sin, cos, pow, ceil, floor, etc.)
+        if (isStaticMathScope(scope)) return true;
+
+        // Static methods on org.mvel3.MVEL (putMap, setList)
+        if (isStaticMvelScope(scope)) return true;
+
+        // Instance method calls: scope must be a supported expression (variable access)
+        return isSupportedExpression(scope);
+    }
+
+    private static boolean isStaticMathScope(Expression scope) {
+        if (scope instanceof NameExpr ne) {
+            return "Math".equals(ne.getNameAsString());
+        }
+        if (scope instanceof FieldAccessExpr fae) {
+            String name = fae.toString();
+            return "java.lang.Math".equals(name) || "Math".equals(name);
+        }
+        return false;
+    }
+
+    private static boolean isStaticMvelScope(Expression scope) {
+        if (scope instanceof FieldAccessExpr fae) {
+            String name = fae.toString();
+            return "org.mvel3.MVEL".equals(name);
+        }
+        return false;
     }
 
     // ── Type inference helpers ─────────────────────────────────────────────
@@ -817,6 +1092,9 @@ public final class ClassfileEvaluatorEmitter {
                 if (ue.getOperator() == UnaryExpr.Operator.LOGICAL_COMPLEMENT) {
                     yield TypeKind.INT; // boolean → int
                 }
+                if (ue.getOperator() == UnaryExpr.Operator.BITWISE_COMPLEMENT) {
+                    yield inferTypeKind(ue.getExpression(), slots); // same type as operand
+                }
                 yield inferTypeKind(ue.getExpression(), slots);
             }
             case BinaryExpr be -> {
@@ -827,11 +1105,53 @@ public final class ClassfileEvaluatorEmitter {
                         || op == BinaryExpr.Operator.EQUALS || op == BinaryExpr.Operator.NOT_EQUALS) {
                     yield TypeKind.INT; // boolean result
                 }
+                // Bitwise and shift operations preserve the left operand type
                 yield inferTypeKind(be.getLeft(), slots);
             }
-            case MethodCallExpr _ -> TypeKind.REFERENCE; // method calls return Object by default
+            case MethodCallExpr mce -> {
+                // Math static calls return double
+                if (mce.getScope().isPresent() && isStaticMathScope(mce.getScope().get())) {
+                    yield TypeKind.DOUBLE;
+                }
+                yield TypeKind.REFERENCE; // method calls return Object by default
+            }
             default -> TypeKind.REFERENCE;
         };
+    }
+
+    /**
+     * Infer a JavaParser Type from an expression, for use with var declarations.
+     * Maps TypeKind back to PrimitiveType where possible, otherwise returns
+     * a ClassOrInterfaceType matching the expression.
+     */
+    private static Type inferTypeFromExpression(Expression expr, LocalSlotTable slots) {
+        // CastExpr: use the cast target type directly
+        if (expr instanceof CastExpr ce) {
+            return ce.getType();
+        }
+        TypeKind kind = inferTypeKind(expr, slots);
+        return switch (kind) {
+            case INT -> PrimitiveType.intType();
+            case LONG -> PrimitiveType.longType();
+            case DOUBLE -> PrimitiveType.doubleType();
+            case FLOAT -> PrimitiveType.floatType();
+            case BOOLEAN -> PrimitiveType.booleanType();
+            case BYTE -> PrimitiveType.byteType();
+            case CHAR -> PrimitiveType.charType();
+            case SHORT -> PrimitiveType.shortType();
+            default -> new ClassOrInterfaceType(null, "Object"); // reference fallback
+        };
+    }
+
+    /**
+     * For var declarations with a boxed initializer (CastExpr to a boxed type),
+     * return the boxed type name for unboxing.
+     */
+    private static String inferBoxedNameFromExpression(Expression expr) {
+        if (expr instanceof CastExpr ce && ce.getType().isClassOrInterfaceType()) {
+            return ce.getType().asClassOrInterfaceType().getNameWithScope();
+        }
+        return "java.lang.Object";
     }
 
     /**
@@ -890,4 +1210,92 @@ public final class ClassfileEvaluatorEmitter {
             UnaryExpr.class, BinaryExpr.class, MethodCallExpr.class,
             VariableDeclarationExpr.class, AssignExpr.class
     );
+
+    // ── Phase 2 audit: diagnose why canEmit() rejected ───────────────────
+
+    /**
+     * Diagnose why {@link #canEmit(TranspiledResult)} returns false.
+     * Returns a human-readable reason string, or null if emittable.
+     */
+    public static String diagnoseRejection(TranspiledResult result) {
+        MethodDeclaration method = result.getUnit()
+                .findFirst(MethodDeclaration.class)
+                .orElse(null);
+        if (method == null) return "no MethodDeclaration in AST";
+        if (method.getBody().isEmpty()) return "method has no body";
+
+        BlockStmt body = method.getBody().get();
+
+        // Check statement support
+        boolean hasReturn = false;
+        for (Statement stmt : body.getStatements()) {
+            if (!isSupportedStatement(stmt)) {
+                return "unsupported statement: " + stmt.getClass().getSimpleName()
+                        + " → " + stmt.toString().trim();
+            }
+            if (stmt instanceof ReturnStmt) hasReturn = true;
+        }
+        if (!hasReturn) return "no return statement";
+
+        return null; // emittable
+    }
+
+    /**
+     * Find the first unsupported expression node in a statement (for audit detail).
+     */
+    public static String diagnoseUnsupportedExpression(Statement stmt) {
+        if (stmt instanceof ExpressionStmt es) {
+            return findUnsupported(es.getExpression());
+        } else if (stmt instanceof ReturnStmt rs && rs.getExpression().isPresent()) {
+            return findUnsupported(rs.getExpression().get());
+        }
+        return stmt.getClass().getSimpleName();
+    }
+
+    private static String findUnsupported(Expression expr) {
+        return switch (expr) {
+            case IntegerLiteralExpr _, LongLiteralExpr _, DoubleLiteralExpr _,
+                 BooleanLiteralExpr _, StringLiteralExpr _, NullLiteralExpr _,
+                 CharLiteralExpr _, NameExpr _ -> null;
+            case EnclosedExpr ee -> findUnsupported(ee.getInner());
+            case CastExpr ce -> findUnsupported(ce.getExpression());
+            case UnaryExpr ue -> {
+                if (!isSupportedUnary(ue))
+                    yield "UnaryExpr(" + ue.getOperator() + "): " + ue;
+                yield findUnsupported(ue.getExpression());
+            }
+            case BinaryExpr be -> {
+                if (!isSupportedBinary(be)) {
+                    String left = findUnsupported(be.getLeft());
+                    if (left != null) yield left;
+                    String right = findUnsupported(be.getRight());
+                    if (right != null) yield right;
+                    yield "BinaryExpr(" + be.getOperator() + "): " + be;
+                }
+                yield null;
+            }
+            case MethodCallExpr mce -> {
+                if (!isSupportedMethodCall(mce))
+                    yield "MethodCallExpr: " + mce;
+                yield null;
+            }
+            case VariableDeclarationExpr vde -> {
+                for (var v : vde.getVariables()) {
+                    if (v.getInitializer().isPresent()) {
+                        String r = findUnsupported(v.getInitializer().get());
+                        if (r != null) yield r;
+                    }
+                }
+                yield null;
+            }
+            case AssignExpr ae -> {
+                if (ae.getOperator() != AssignExpr.Operator.ASSIGN)
+                    yield "AssignExpr(compound " + ae.getOperator() + "): " + ae;
+                if (!(ae.getTarget() instanceof NameExpr))
+                    yield "AssignExpr(non-name target " + ae.getTarget().getClass().getSimpleName() + "): " + ae;
+                yield findUnsupported(ae.getValue());
+            }
+            default -> expr.getClass().getSimpleName() + ": " + expr;
+        };
+    }
 }

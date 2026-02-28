@@ -64,20 +64,40 @@ public class MVELCompiler {
 
     private static final Logger log = LoggerFactory.getLogger(MVELCompiler.class);
 
+    static final boolean CLASSFILE_EMITTER_ENABLED =
+            !"false".equalsIgnoreCase(System.getProperty("mvel3.compiler.classfile.emitter", "true"));
+
+    private static final boolean CLASSFILE_DEBUG =
+            "true".equalsIgnoreCase(System.getProperty("mvel3.compiler.classfile.debug"));
+
     public <T, K, R> Evaluator<T, K, R> compile(CompilerParameters<T, K, R> info) {
         // Phase 1: Try Classfile API direct bytecode emission (bypasses javac entirely)
         // Skip when Lambda persistence is enabled — persistence requires javac's classfile format
         // for ASM-based deduplication. This restriction is lifted in Phase 3.
+        // Kill-switch: -Dmvel3.compiler.classfile.emitter=false forces javac for all expressions.
         TranspiledResult transpiled = transpile(info);
-        if (!LambdaRegistry.PERSISTENCE_ENABLED && ClassfileEvaluatorEmitter.canEmit(transpiled)) {
+        if (CLASSFILE_EMITTER_ENABLED && !LambdaRegistry.PERSISTENCE_ENABLED
+                && ClassfileEvaluatorEmitter.canEmit(transpiled)) {
             try {
                 byte[] bytecode = ClassfileEvaluatorEmitter.emit(info, transpiled);
                 Evaluator<T, K, R> evaluator = loadClassfileEmitted(bytecode, info);
                 log.debug("Classfile API emitter used for expression: {}", info.expression());
                 return evaluator;
             } catch (Exception e) {
+                if (CLASSFILE_DEBUG) {
+                    log.debug("Classfile emit threw for: {} | reason: {}", info.expression(), e.getMessage());
+                }
                 log.debug("Classfile API emission failed, falling back to javac: {}", e.getMessage());
                 // Fall through to javac pipeline
+            }
+        } else if (CLASSFILE_DEBUG) {
+            if (!CLASSFILE_EMITTER_ENABLED) {
+                log.debug("Classfile emitter disabled for: {}", info.expression());
+            } else if (LambdaRegistry.PERSISTENCE_ENABLED) {
+                log.debug("Classfile emitter skipped (persistence enabled) for: {}", info.expression());
+            } else {
+                String reason = ClassfileEvaluatorEmitter.diagnoseRejection(transpiled);
+                log.debug("Classfile canEmit=false for: {} | reason: {}", info.expression(), reason);
             }
         }
 
@@ -293,4 +313,5 @@ public class MVELCompiler {
 
         return newJavaFQN;
     }
+
 }
