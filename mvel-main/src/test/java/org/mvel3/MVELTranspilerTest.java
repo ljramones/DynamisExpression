@@ -17,7 +17,6 @@
 package org.mvel3;
 
 import com.github.javaparser.ast.type.PrimitiveType.Primitive;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import org.mvel3.transpiler.CoerceRewriter;
@@ -1826,7 +1825,7 @@ class MVELTranspilerTest implements TranspilerTest {
              "");
     }
 
-    @Test @Disabled("JavaSymboleResolver doesn't work for TextBlockLiteralExpr")
+    @Test
     void testMultiLineStringLiteralAsMethodCallExpr() {
         test("java.lang.String s = \"\"\"\n" +
              "                      Charmander\n" +

@@ -490,6 +490,11 @@ public class TypeExtractor extends DefaultVisitorAdapter {
     }
 
     @Override
+    public ResolvedType visit(TextBlockLiteralExpr node, Boolean solveLambdas) {
+        return stringReferenceType;
+    }
+
+    @Override
     public ResolvedType visit(IntegerLiteralExpr node, Boolean solveLambdas) {
         return ResolvedPrimitiveType.INT;
     }
