@@ -26,7 +26,7 @@
     </licenses>
 
     <properties>
-        <java.version>8</java.version>
+        <java.version>17</java.version>
         <build.timestamp>${maven.build.timestamp}</build.timestamp>
     </properties>
 

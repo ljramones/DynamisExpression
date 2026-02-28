@@ -153,7 +153,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <java.version>8</java.version>
+        <java.version>17</java.version>
 
         <!-- JDK 25 module opens for Mockito/byte-buddy (experimental flag for JDK 25 class file version) -->
         <argLine>
@@ -209,8 +209,8 @@
                         <configuration>
                             <rules>
                                 <requireJavaVersion>
-                                    <version>[11,)</version>
-                                    <message>This project requires JDK 11 or later to build.</message>
+                                    <version>[17,)</version>
+                                    <message>This project requires JDK 17 or later to build.</message>
                                 </requireJavaVersion>
                             </rules>
                         </configuration>
