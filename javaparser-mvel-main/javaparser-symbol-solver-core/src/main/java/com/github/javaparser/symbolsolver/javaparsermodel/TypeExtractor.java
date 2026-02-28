@@ -48,6 +48,7 @@ import com.github.javaparser.resolution.*;
 import com.github.javaparser.resolution.declarations.*;
 import com.github.javaparser.resolution.logic.FunctionalInterfaceLogic;
 import com.github.javaparser.resolution.logic.InferenceContext;
+import com.github.javaparser.resolution.logic.MethodResolutionLogic;
 import com.github.javaparser.resolution.model.SymbolReference;
 import com.github.javaparser.resolution.model.Value;
 import com.github.javaparser.resolution.model.typesystem.LazyType;
@@ -261,18 +262,45 @@ public class TypeExtractor extends DefaultVisitorAdapter {
 
     @Override
     public ResolvedType visit(NullSafeFieldAccessExpr node, Boolean solveLambdas) {
-        Optional<Value> value = createSolver().solveSymbolAsValue(node.getName().getId(), node.getScope());
-        if (value.isPresent()) {
-            return value.get().getType();
+        // Resolve the scope type, then look up the field on that type.
+        // Mirrors FieldAccessContext.solveSymbolAsValue logic.
+        ResolvedType scopeType = facade.getType(node.getScope());
+        if (scopeType.isArray() && node.getName().getId().equals("length")) {
+            return ResolvedPrimitiveType.INT;
+        }
+        if (scopeType.isReferenceType()) {
+            Optional<ResolvedType> fieldType = scopeType.asReferenceType().getFieldType(node.getName().getId());
+            if (fieldType.isPresent()) {
+                return fieldType.get();
+            }
         }
         throw new UnsolvedSymbolException(node.getName().getId());
     }
 
     @Override
     public ResolvedType visit(NullSafeMethodCallExpr node, Boolean solveLambdas) {
-        return node.getScope()
-                .map(scope -> scope.accept(this, solveLambdas))
+        // Resolve scope type, then look up the method's return type.
+        // Mirrors MethodCallExprContext.solveMethodAsUsage logic.
+        ResolvedType scopeType = node.getScope()
+                .map(scope -> facade.getType(scope))
                 .orElseThrow(() -> new IllegalStateException("Null-safe method call without scope: " + node));
+
+        if (scopeType.isReferenceType()) {
+            List<ResolvedType> argTypes = node.getArguments().stream()
+                    .map(arg -> facade.getType(arg, false))
+                    .collect(Collectors.toList());
+
+            Optional<ResolvedReferenceTypeDeclaration> typeDecl = scopeType.asReferenceType().getTypeDeclaration();
+            if (typeDecl.isPresent()) {
+                SymbolReference<ResolvedMethodDeclaration> methodRef =
+                        MethodResolutionLogic.solveMethodInType(typeDecl.get(), node.getName().getId(), argTypes);
+                if (methodRef.isSolved()) {
+                    return new MethodUsage(methodRef.getCorrespondingDeclaration()).returnType();
+                }
+            }
+        }
+
+        throw new UnsolvedSymbolException(node.getName().getId());
     }
 
     @Override

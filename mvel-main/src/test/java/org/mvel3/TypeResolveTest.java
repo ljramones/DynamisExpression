@@ -292,7 +292,6 @@ class TypeResolveTest {
         assertThat(resolvedType.describe()).isEqualTo(Address.class.getCanonicalName());
     }
 
-    @Disabled("Need some enhancements in javaparser TypeExtractor")
     @Test
     void testNullSafeFieldAccessExpr() {
 
@@ -324,7 +323,6 @@ class TypeResolveTest {
         assertThat(resolvedType.describe()).isEqualTo(Address.class.getCanonicalName());
     }
 
-    @Disabled("Need some enhancements in javaparser TypeExtractor")
     @Test
     void testNullSafeMethodCallExpr() {
         CompilationUnit unit = transpileWithoutRewrite(ctx -> ctx.addDeclaration("person", Person.class),
