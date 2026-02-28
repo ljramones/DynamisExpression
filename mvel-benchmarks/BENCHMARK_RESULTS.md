@@ -7,7 +7,8 @@ Recorded: 2026-02-28
 - JDK 25 (Temurin 25.0.1+8)
 - JMH benchmarks from `mvel-benchmarks` module
 - Baseline: pre-error-handling/DRL-cleanup state
-- Current: post-error-handling + DRL cleanup + benchmark fix (string concat removed from hot loop)
+- Previous: post-error-handling + DRL cleanup + benchmark fix (string concat removed from hot loop)
+- Current: Phase 1 Classfile API bytecode emitter (javac bypass for predicate expressions)
 
 ## Complete Baseline Comparison
 
@@ -20,10 +21,12 @@ Recorded: 2026-02-28
 | constructMapContext (thrpt) | 37.32 ops/us | 38.10 ops/us | flat |
 | constructAndEvalPojo (thrpt) | 47.99 ops/us | 97.73 ops/us | **+104%** * |
 | constructAndEvalMap (thrpt) | 25.75 ops/us | 24.22 ops/us | -6% |
-| compileSimpleExpression | 5.73 ms | 5.48 ms | -4% |
-| compilePredicateExpression | 5.83 ms | 5.60 ms | -4% |
-| compileComplexExpression | 5.77 ms | 5.58 ms | -3% |
+| compileSimpleExpression | 5.73 ms | **0.70 ms** | **-88% (7.8x)** † |
+| compilePredicateExpression | 5.83 ms | **0.87 ms** | **-85% (6.5x)** † |
+| compileComplexExpression | 5.77 ms | 5.78 ms | flat (javac fallback) |
 | concurrentCompile | 6.85 ms | 6.15 ms | **-10%** |
+
+† Classfile API bytecode emitter bypasses javac entirely. See "Classfile API Compilation Speedup" below.
 
 \* Original constructAndEvalPojo measurement included `"Faction" + rng.nextInt()` string concatenation in the hot loop, which accounted for 74% of samples. See "Benchmark Fix" below.
 
@@ -51,11 +54,47 @@ The concurrent compilation improvement from 6.85ms to 6.15ms is the thread safet
 
 Variance of ±126 ops/us (stdev 188) in throughput mode. Fork 1 raw data shows iterations oscillating between 1,890 and 1,303 — a 30% cliff suggesting JIT deoptimization events, not GC. Latency mode shows 0.001 ±0.001 which is at measurement resolution, so evaluation itself is fine. Throughput instability is likely benchmark harness interaction at nanosecond scale rather than a real production concern.
 
-## Compilation Cost Analysis
+## Classfile API Compilation Speedup
 
-Compilation cost is immovable at ~5.5ms regardless of expression complexity. Every cache miss costs 5.5ms. In DynamisScripting during engine startup — loading quest graphs, initializing Chronicler predicates, compiling faction rules — this cost is paid hundreds of times. At 100 expressions that's 550ms of startup cost from javac alone.
+Phase 1 of the Classfile API bytecode emitter (`java.lang.classfile`, JEP 484) replaces the javac in-memory compilation pipeline with direct bytecode generation for supported expression patterns. `MVELCompiler.compile()` tries the Classfile API path first and falls back to javac for unsupported expressions.
 
-ASM direct bytecode generation targets this: ANTLR parse → AST → ASM bytecode emit. No javac process, no in-memory compilation, no class file generation overhead. Expected compilation cost: 50–200 microseconds (30–100x improvement).
+### Before vs After
+
+| Benchmark | javac (before) | Classfile API (after) | Speedup |
+|---|---|---|---|
+| compileSimpleExpression (`a + b`) | 5.48 ms | 0.70 ms | **7.8x** |
+| compilePredicateExpression (`influence > 50 && !atWar && stability > 30`) | 5.60 ms | 0.87 ms | **6.5x** |
+| compileComplexExpression (block with assignments) | 5.58 ms | 5.78 ms | javac fallback |
+
+### What Phase 1 supports
+
+- Integer/boolean/double/float/long literals
+- Arithmetic: `+`, `-`, `*`, `/`, `%`
+- Comparisons: `>`, `<`, `>=`, `<=`, `==`, `!=`
+- Boolean logic: `&&` (short-circuit), `||` (short-circuit), `!`
+- Variable extraction from Map (`map.get("key")` + cast), POJO (getter calls), List (`list.get(index)` + cast)
+- Cast expressions (primitive unboxing, reference casts)
+- Simple return statements
+
+### What falls back to javac
+
+- Block expressions with multiple statements and assignments
+- Compound assignments (`+=`, `-=`, etc.)
+- Boxed-type variable declarations (auto-unboxing in arithmetic not yet implemented)
+- Control flow (`if`/`for`/`while`), try/catch, object creation
+- Lambda persistence mode (`LambdaRegistry.PERSISTENCE_ENABLED`)
+
+### Where the remaining 0.7ms goes
+
+The Classfile API eliminated javac (~4.8ms) but the remaining ~0.7ms is the transpilation pipeline: ANTLR4 parse → JavaParser AST construction → MVELToJavaRewriter pass → `canEmit()` check → Classfile API bytecode emission. The ANTLR parse and AST rewrite are the dominant remaining costs. Phase 2/3 may explore bypassing the full AST rewrite for simple expressions.
+
+### Startup impact
+
+At 100 predicate expressions during DynamisScripting startup, compilation cost drops from 550ms (100 × 5.5ms) to 70ms (100 × 0.7ms) — a **480ms reduction** in engine startup time.
+
+## Previous Compilation Cost Analysis
+
+Before the Classfile API emitter, compilation cost was immovable at ~5.5ms regardless of expression complexity, dominated by javac's in-memory compiler infrastructure.
 
 ## GC Considerations
 
@@ -63,5 +102,6 @@ Latency data is almost too good to need GC work at the evaluation layer — 1ns 
 
 ## Recommended Next Steps
 
-1. Scope ASM bytecode generation as the major compilation performance initiative
-2. GC/context pooling work follows after ASM (compilation pipeline changes may affect allocation patterns)
+1. **Phase 2**: Extend Classfile API emitter to control flow (`if`/`for`/`while`), try/catch, object creation — eliminates javac fallback for more expression patterns
+2. **Phase 3**: Full javac elimination — remove KieMemoryCompiler, remove ASM dependency, unify ClassManager with Classfile API loading
+3. GC/context pooling work follows after compilation pipeline is finalized
