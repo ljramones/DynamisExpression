@@ -1,0 +1,47 @@
+# Maven
+target/
+dependency-reduced-pom.xml
+release.properties
+pom.xml.releaseBackup
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# VS Code
+.vscode/
+
+# NetBeans
+/nbproject
+
+# OS files
+.DS_Store
+*~
+hs_err_pid*
+
+# Gradle (javaparser-mvel legacy)
+.gradle
+build/
+out/
+
+# ANTLR generated tokens
+src/main/antlr4/org/mvel3/parser/antlr4/*.tokens
+gen/
+
+# Project-specific
+/local
+/META-INF
+/lib
+bin/
+.manager
+.mtj.tmp/
+build-*
+*.asc
+.java-version

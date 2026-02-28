@@ -1,0 +1,154 @@
+/*
+ * Copyright 2021 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.mvel3;
+
+import org.junit.jupiter.api.Disabled;
+import org.mvel3.transpiler.TranspiledResult;
+import org.mvel3.transpiler.context.Declaration;
+import org.junit.jupiter.api.Test;
+
+import java.math.BigDecimal;
+import java.util.Map;
+import java.util.function.Consumer;
+
+class ConstraintTranspilerTest implements TranspilerTest {
+
+    @Test
+    void testBigDecimalPromotion() {
+        testExpression(c -> c.withDeclaration(Declaration.of("_this", Person.class)), "{var x = salary + salary;}",
+                       "{var x = _this.getSalary().add(_this.getSalary(), java.math.MathContext.DECIMAL128);}");
+    }
+
+    @Test
+    void testBigDecimalStringEquality() {
+        testExpression(c -> c.withDeclaration(Declaration.of("_this", Person.class)), "{var x = salary == \"90\";}",
+                       "{var x = _this.getSalary().compareTo(new BigDecimal(\"90\")) == 0;}");
+    }
+
+    @Test
+    void testBigDecimalPromotionToIntMethod() {
+        testExpression(c -> c.withDeclaration(Declaration.of("_this", Person.class)), "{var x = isEvenInt(salary.intValue());}",
+                       "{var x = _this.isEvenInt(_this.getSalary().intValue());}");
+    }
+
+    @Test
+    void testConversionConstructorArgument() {
+        testExpression(c -> c.addDeclaration("$p", Person.class), "{var x = new Person($p.name, $p);}",
+                       "{var x = new Person($p.getName(), $p);}");
+    }
+
+    @Test
+    void testBigDecimalMultiplyInt() {
+        testExpression(c -> c.addDeclaration("$bd1", BigDecimal.class), "{var x = $bd1 * 10;}",
+                       "{var x = $bd1.multiply(BigDecimal.valueOf(10), java.math.MathContext.DECIMAL128);}");
+    }
+
+    @Test
+    void testBigDecimalMultiplyNegativeInt() {
+        testExpression(c -> c.addDeclaration("$bd1", BigDecimal.class), "{var x = $bd1 * -1;}",
+                       "{var x = $bd1.multiply(BigDecimal.valueOf(-1), java.math.MathContext.DECIMAL128);}");
+    }
+
+    @Test
+    void testBigDecimalAddInt() {
+        testExpression(c -> c.addDeclaration("$bd1", BigDecimal.class), "{var x = $bd1 + 10;}",
+                       "{var x = $bd1.add(BigDecimal.valueOf(10), java.math.MathContext.DECIMAL128);}");
+    }
+
+    @Test
+    void testBigDecimalAddIntWithDecimal() {
+        testExpression(c -> c.addDeclaration("$bd1", BigDecimal.class), "{var x = $bd1 + 10.0;}",
+                       "{var x = $bd1.add(new BigDecimal(\"10.0\"), java.math.MathContext.DECIMAL128);}");
+    }
+
+    @Test
+    void testBigDecimalSubtractInt() {
+        testExpression(c -> c.addDeclaration("$bd1", BigDecimal.class), "{var x = $bd1 - 10;}",
+                       "{var x = $bd1.subtract(BigDecimal.valueOf(10), java.math.MathContext.DECIMAL128);}");
+    }
+
+    @Test
+    void testBigDecimalDivideInt() {
+        testExpression(c -> c.addDeclaration("$bd1", BigDecimal.class), "{var x = $bd1 / 10;}",
+                       "{var x = $bd1.divide(BigDecimal.valueOf(10), java.math.MathContext.DECIMAL128);}");
+    }
+
+    @Test
+    void testBigDecimalModInt() {
+        testExpression(c -> c.addDeclaration("$bd1", BigDecimal.class), "{var x = $bd1 % 10;}",
+                       "{var x = $bd1.remainder(BigDecimal.valueOf(10), java.math.MathContext.DECIMAL128);}");
+    }
+
+    @Test
+    void testBigDecimalStringNonEquality() {
+        testExpression(c -> c.withDeclaration(Declaration.of("_this", Person.class)), "{var x = salary != \"90\";}",
+                       "{var x = _this.getSalary().compareTo(new BigDecimal(\"90\")) != 0;}");
+    }
+
+    @Test
+    void testRootObjectWithPropertyAndBigRewrite() {
+        testExpression(c -> c.withDeclaration(Declaration.of("_this", Person.class)), "{var x = salary != 90;}",
+                       "{var x = _this.getSalary().compareTo(BigDecimal.valueOf(90)) != 0;}");
+    }
+
+    @Test
+    void testRootObjectWithNestedPropertiesAndBigRewrite() {
+        testExpression(c -> c.withDeclaration(Declaration.of("_this", Person.class)), "{var x = parent.salary != 90;}",
+                       "{var x = _this.getParent().getSalary().compareTo(BigDecimal.valueOf(90)) != 0;}");
+    }
+
+    @Test
+    void testRootObjectWithPropertyAndNestedMethdAndBigRewrite() {
+        testExpression(c -> c.withDeclaration(Declaration.of("_this", Person.class)), "{var x = parent.getSalary() != 90;}",
+                       "{var x = _this.getParent().getSalary().compareTo(BigDecimal.valueOf(90)) != 0;}");
+    }
+
+    @Test
+    void testRootObjectWithMethodAndBigRewrite() {
+        testExpression(c -> c.withDeclaration(Declaration.of("_this", Person.class)), "{var x = getSalary() != 90;}",
+                       "{var x = _this.getSalary().compareTo(BigDecimal.valueOf(90)) != 0;}");
+    }
+
+    @Test
+    void testRootObjectWithMethodAndNestedPropertyAndBigRewrite() {
+        testExpression(c -> c.withDeclaration(Declaration.of("_this", Person.class)), "{var x = getParent().salary != 90;}",
+                       "{var x = _this.getParent().getSalary().compareTo(BigDecimal.valueOf(90)) != 0;}");
+    }
+
+    @Test
+    void testRootObjectWithMethodAndNestedMethodAndBigRewrite() {
+        testExpression(c -> c.withDeclaration(Declaration.of("_this", Person.class)), "{var x = getParent().getSalary() != 90;}",
+                       "{var x = _this.getParent().getSalary().compareTo(BigDecimal.valueOf(90)) != 0;}");
+    }
+
+    public <K, R> void testExpression(Consumer<MVELBuilder<Map<String, Object>, Void, Object>> testFunction,
+                               String inputExpression,
+                               String expectedResult,
+                               Consumer<TranspiledResult> resultAssert) {
+        test(testFunction,
+             inputExpression,
+             expectedResult,
+             resultAssert);
+    }
+
+    <K, R> void testExpression(Consumer<MVELBuilder<Map<String, Object>, Void, Object>> testFunction,
+                                  String inputExpression,
+                                  String expectedResult) {
+        testExpression(testFunction, inputExpression, expectedResult, t -> {
+        });
+    }
+}
