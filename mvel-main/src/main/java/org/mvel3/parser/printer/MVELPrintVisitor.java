@@ -40,7 +40,6 @@ import com.github.javaparser.resolution.types.ResolvedType;
 import org.mvel3.parser.ast.expr.AbstractContextStatement;
 import org.mvel3.parser.ast.expr.BigDecimalLiteralExpr;
 import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
-import org.mvel3.parser.ast.expr.DrlNameExpr;
 import org.mvel3.parser.ast.expr.DrlxExpression;
 import org.mvel3.parser.ast.expr.FullyQualifiedInlineCastExpr;
 import org.mvel3.parser.ast.expr.HalfBinaryExpr;
@@ -362,13 +361,6 @@ public class MVELPrintVisitor extends DefaultPrettyPrinterVisitor implements Drl
 
     public void printComment(final Optional<Comment> comment, final Void arg) {
         comment.ifPresent(c -> c.accept(this, arg));
-    }
-
-    @Override
-    public void visit(DrlNameExpr n, Void arg) {
-        printComment(n.getComment(), arg);
-        java.util.stream.IntStream.range(0, n.getBackReferencesCount()).forEach(s -> printer.print("../"));
-        n.getName().accept(this, arg);
     }
 
     @Override

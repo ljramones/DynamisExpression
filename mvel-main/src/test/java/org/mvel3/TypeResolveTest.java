@@ -39,7 +39,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.mvel3.parser.ast.expr.BigDecimalLiteralExpr;
 import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
-import org.mvel3.parser.ast.expr.DrlNameExpr;
 import org.mvel3.parser.ast.expr.HalfBinaryExpr;
 import org.mvel3.parser.ast.expr.HalfPointFreeExpr;
 import org.mvel3.parser.ast.expr.InlineCastExpr;
@@ -203,7 +202,7 @@ class TypeResolveTest {
     }
 
     @Test
-    void testDrlNameExpr() {
+    void testNameExpr() {
         CompilationUnit unit = transpileWithoutRewrite(ctx -> ctx.addDeclaration("person", Person.class),
                                                        "{ return person; }");
         BlockStmt body = getFirstMethodBody(unit);
@@ -213,11 +212,9 @@ class TypeResolveTest {
         Expression expression = returnStmt.getExpression()
                 .orElseThrow(() -> new AssertionError("Return without expression"));
 
-        assertThat(expression).isInstanceOf(DrlNameExpr.class);
-        DrlNameExpr drlNameExpr = (DrlNameExpr) expression;
-        assertThat(drlNameExpr.getBackReferencesCount()).isZero();
+        assertThat(expression).isInstanceOf(NameExpr.class);
 
-        ResolvedType resolvedType = drlNameExpr.calculateResolvedType();
+        ResolvedType resolvedType = expression.calculateResolvedType();
         assertThat(resolvedType.describe()).isEqualTo(Person.class.getCanonicalName());
     }
 

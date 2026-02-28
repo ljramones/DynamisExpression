@@ -1,6 +1,5 @@
 package org.mvel3.transpiler;
 import com.github.javaparser.ast.expr.NameExpr;
-import org.mvel3.parser.ast.expr.DrlNameExpr;
 import org.mvel3.parser.ast.visitor.DrlVoidVisitorAdapter;
 
 import java.util.HashSet;
@@ -18,12 +17,6 @@ public class VariableAnalyser extends DrlVoidVisitorAdapter<Void> {
     }
 
     public void visit(NameExpr n, Void arg) {
-        if (available.contains(n.getNameAsString())) {
-            used.add(n.getNameAsString());
-        }
-    }
-
-    public void visit(DrlNameExpr n, Void arg) {
         if (available.contains(n.getNameAsString())) {
             used.add(n.getNameAsString());
         } else {

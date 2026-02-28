@@ -132,7 +132,6 @@ import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
 import org.mvel3.parser.ast.expr.BigDecimalLiteralExpr;
 import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
-import org.mvel3.parser.ast.expr.DrlNameExpr;
 import org.mvel3.parser.ast.expr.HalfBinaryExpr;
 import org.mvel3.parser.ast.expr.InlineCastExpr;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpression;
@@ -1356,9 +1355,7 @@ public class Mvel3ToJavaParserVisitor extends Mvel3ParserBaseVisitor<Node> {
         if (ctx.literal() != null) {
             return visit(ctx.literal());
         } else if (ctx.identifier() != null) {
-            // Always use DrlNameExpr for identifiers to match JavaCC behavior
-            // backReferencesCount defaults to 0 for normal identifiers
-            DrlNameExpr nameExpr = new DrlNameExpr(ctx.identifier().getText());
+            NameExpr nameExpr = new NameExpr(ctx.identifier().getText());
             nameExpr.setTokenRange(createTokenRange(ctx));
             associateAntlrTokenWithJPNode(ctx.identifier(), nameExpr);
             return nameExpr;
