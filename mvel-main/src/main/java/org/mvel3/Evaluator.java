@@ -43,10 +43,10 @@ public interface Evaluator<C, W, O> {
      *
      * @param c the context object containing input variables
      * @return the result of evaluating the expression
-     * @throws RuntimeException if this method is not implemented for this evaluator
+     * @throws ExpressionEvaluationException if this method is not implemented for this evaluator
      */
     default O eval(C c) {
-        throw new RuntimeException("Not Implemented");
+        throw new ExpressionEvaluationException("This evaluator does not implement eval(C). Use the correct eval method for your context type.");
     }
 
     /**
@@ -58,10 +58,10 @@ public interface Evaluator<C, W, O> {
      * @param c the context object containing input variables
      * @param w the "with" root object
      * @return the result of evaluating the expression
-     * @throws RuntimeException if this method is not implemented for this evaluator
+     * @throws ExpressionEvaluationException if this method is not implemented for this evaluator
      */
     default O eval(C c, W w) {
-        throw new RuntimeException("Not Implemented");
+        throw new ExpressionEvaluationException("This evaluator does not implement eval(C, W). Use the correct eval method for your context type.");
     }
 
     /**
@@ -72,9 +72,9 @@ public interface Evaluator<C, W, O> {
      *
      * @param w the "with" root object
      * @return the result of evaluating the expression
-     * @throws RuntimeException if this method is not implemented for this evaluator
+     * @throws ExpressionEvaluationException if this method is not implemented for this evaluator
      */
     default O evalWith(W w) {
-        throw new RuntimeException("Not Implemented");
+        throw new ExpressionEvaluationException("This evaluator does not implement evalWith(W). Use the correct eval method for your context type.");
     }
 }

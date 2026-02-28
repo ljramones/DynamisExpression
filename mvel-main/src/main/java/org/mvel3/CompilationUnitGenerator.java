@@ -296,7 +296,9 @@ public class CompilationUnitGenerator {
     }
 
     private static void throwParserException(String type, ParseResult<Type> result) {
-        throw new RuntimeException("Unable to parser type: " + type + "\n" + result.getProblems().toString());
+        throw new ExpressionTranspileException(
+            "Unable to parse type: " + type + "\n" + result.getProblems(),
+            type);
     }
 
     private void createMapContextVariableAssignments(Map<String, Declaration> entries, Set<String> inputs, String[] returnVars) {
@@ -403,7 +405,7 @@ public class CompilationUnitGenerator {
             try {
                 method = clazz.getDeclaredMethod(property);
             } catch (NoSuchMethodException e) {
-                throw new RuntimeException(e);
+                throw new MethodResolutionException(clazz.getName(), property, 0);
             }
         }
 

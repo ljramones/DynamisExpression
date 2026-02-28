@@ -539,6 +539,18 @@ public class MVELToJavaRewriter {
                 }
 
                 maybeCoerceArguments(currentMethodCall);
+
+                // Integer.rotateLeft → Long.rotateLeft when first arg is long
+                if (currentMethodCall.getNameAsString().equals("rotateLeft") &&
+                    currentMethodCall.getArguments().size() == 2 &&
+                    currentMethodCall.getScope().isPresent() &&
+                    currentMethodCall.getScope().get().isNameExpr() &&
+                    currentMethodCall.getScope().get().asNameExpr().getNameAsString().equals("Integer")) {
+                    ResolvedType argType = currentMethodCall.getArgument(0).calculateResolvedType();
+                    if (argType.describe().equals("long") || argType.describe().equals("java.lang.Long")) {
+                        currentMethodCall.setScope(new NameExpr("Long"));
+                    }
+                }
             }
             case VariableDeclarationExpr declrExpr -> {
                 VariableDeclarator declr = declrExpr.getVariable(0);
@@ -613,7 +625,7 @@ public class MVELToJavaRewriter {
                     if ( coerced != null) {
                         initExpr.getValues().set(i, coerced);
                     } else {
-                        throw new RuntimeException("Cannot be cast or coerced: " + expr);
+                        throw new org.mvel3.ExpressionTranspileException("Cannot be cast or coerced: " + expr, expr.toString());
                     }
                 }
 
@@ -642,7 +654,10 @@ public class MVELToJavaRewriter {
         }
 
         if (methods == null || methods.isEmpty()) {
-            throw new RuntimeException("No method candidates were found for method call '" + methodCall.getNameAsString() + "'");
+            throw new org.mvel3.MethodResolutionException(
+                scope != null ? scope.describe() : "<unknown>",
+                methodCall.getNameAsString(),
+                methodCall.getArguments().size());
         }
 
         List<ResolvedType> argTypes = Arrays.asList(new ResolvedType[methodCall.getArguments().size()]);
@@ -758,7 +773,7 @@ public class MVELToJavaRewriter {
 
     private static ResolvedType getActualResolvedTypeForTypeParameter(ResolvedType paramType, ResolvedType resolvedScope) {
         if (!paramType.isTypeVariable()) {
-            throw new RuntimeException("Check paramType isTypeVariable before calling this method");
+            throw new org.mvel3.TypeResolutionException("Expected type variable but got: " + paramType, null);
         }
         ResolvedTypeVariable typeVariable = paramType.asTypeVariable();
         String typeName = typeVariable.asTypeParameter().getName();
@@ -789,7 +804,7 @@ public class MVELToJavaRewriter {
             // else try coercion
             Expression result = coercer.coerce(sourceType, node.getExpression(), targetType);
             if (result == null) {
-                throw new RuntimeException("Cannot be cast or coerced: " + node);
+                throw new org.mvel3.ExpressionTranspileException("Cannot be cast or coerced: " + node, node.toString());
             }
             expr = result;
 
@@ -854,7 +869,8 @@ public class MVELToJavaRewriter {
             try {
                 methodUsage = context.getFacade().solveMethodAsUsage(cloned);
             } catch (RuntimeException e) {
-                // swallow, we check null anyway. I's dumb this is a runtime exception, as no solving is valid.
+                logger.debug("Method resolution failed for '{}', will attempt alternatives: {}",
+                             cloned.getNameAsString(), e.getMessage());
             }
 
             if (methodUsage != null) {
@@ -922,11 +938,11 @@ public class MVELToJavaRewriter {
 
                 Expression value = assignExpr.getValue();
 
-                MethodUsage setter = getMethod("set", fieldAccessor, 1);
+                MethodUsage setter = findAccessorOrNull("set", fieldAccessor, 1);
                 int paramIndex = 0;
 
                 Supplier<MethodCallExpr> methodCallSupplier = () -> {
-                    MethodUsage methodUsage = getMethod("get", fieldAccessor, 0);
+                    MethodUsage methodUsage = findAccessorOrNull("get", fieldAccessor, 0);
                     return methodUsage != null ? new MethodCallExpr(methodUsage.getName()) : null;
                 };
 
@@ -1043,7 +1059,9 @@ public class MVELToJavaRewriter {
         if (assignExpr.getOperator() != Operator.ASSIGN) {
             if (!isAssignableBy(targetType, valueType)){
                 // No coercion possible, but types not assignable, so this cannot progress.
-                throw new RuntimeException("Invalid statement with compount operator '" + assignExpr.getOperator() + "'. " + value + " cannot be coerced or assigned to " + target);
+                throw new org.mvel3.ExpressionTranspileException(
+                    "Invalid compound assignment '" + assignExpr.getOperator() + "': " + value + " cannot be coerced to " + target,
+                    assignExpr.toString());
             }
 
             // map target and value to the left and right of the BinaryExpr
@@ -1292,9 +1310,9 @@ public class MVELToJavaRewriter {
         try {
             type = n.getScope().calculateResolvedType();
         } catch (Exception e) {
-            // It cannot be known if 'n' is a package which cannot be resolved or a package.
-            // This is a ugly way to simply do nothing if it doesn't resolve and it's assumed (maybe wrongly) it was a
-            // package, instead of some other failure.
+            // If 'n' is a package reference (e.g. java.util.List), resolution will fail.
+            // This is expected — we return the node unchanged.
+            logger.trace("Scope not resolvable for '{}', likely a package reference: {}", n, e.getMessage());
             return n;
         }
         Expression arg = null;
@@ -1304,12 +1322,13 @@ public class MVELToJavaRewriter {
                 getter = mapGetMethod;
                 arg    = new StringLiteralExpr(n.getNameAsString());
             } else {
-                getter = getMethod("get", n, 0);
+                getter = findAccessorOrNull("get", n, 0);
             }
 
             methodCallExpr = createGetterMethodCallExpr(n, getter, arg);
         } catch (Exception e) {
-            // as per catch above, if it's a package, it will fail.
+            // If it's a package reference, getter lookup will fail. Expected.
+            logger.trace("Getter lookup failed for '{}', likely a package reference: {}", n, e.getMessage());
         }
 
         if (methodCallExpr != null) {
@@ -1423,7 +1442,7 @@ public class MVELToJavaRewriter {
         return methodCallExpr;
     }
 
-    public MethodUsage getMethod(String getterSetter, FieldAccessExpr n, int x) {
+    public MethodUsage findAccessorOrNull(String getterSetter, FieldAccessExpr n, int x) {
         ResolvedReferenceTypeDeclaration d;
 
         try {
@@ -1435,6 +1454,7 @@ public class MVELToJavaRewriter {
             d = type.asReferenceType().getTypeDeclaration().get();
         } catch(Exception e) {
             // scope not resolvable, most likely a package
+            logger.debug("Scope not resolvable for '{}', likely a package reference: {}", n, e.getMessage());
             return null;
         }
 
@@ -1444,33 +1464,10 @@ public class MVELToJavaRewriter {
                 return null;
             }
         } catch (UnsolvedSymbolException e) {
-           // swallow
+            logger.trace("No field '{}' on type, will look for getter", n.getName().asString());
         }
 
-        MethodUsage candidate = findGetterSetter(getterSetter, n.getNameAsString(), x, d);
-        if (candidate != null) {
-            return candidate;
-        }
-
-        throw new UnsolvedSymbolException("The node has neither a public field or a getter method for : " + n);
-    }
-
-    public  static MethodUsage getMethod(String getterSetter, ResolvedType type, String name, int x) {
-        ResolvedReferenceTypeDeclaration d;
-
-        try {
-            d = type.asReferenceType().getTypeDeclaration().get();
-        } catch(Exception e) {
-            // scope not resolvable, most likely a package
-            return null;
-        }
-
-        MethodUsage candidate = findGetterSetter(getterSetter, name, x, d);
-        if (candidate != null) {
-            return candidate;
-        }
-
-        throw new UnsolvedSymbolException("The node has neither a public field or a getter method for : " + name);
+        return findGetterSetter(getterSetter, n.getNameAsString(), x, d);
     }
 
     public static MethodUsage findGetterSetter(String getterSetter, String name, int x, ResolvedReferenceTypeDeclaration d) {
@@ -1488,7 +1485,7 @@ public class MVELToJavaRewriter {
                 return candidate;
             }
         }
-        return null;
+        throw new org.mvel3.MethodResolutionException(d.getQualifiedName(), getterSetter(getterSetter, name), x);
     }
 
     private static MethodUsage getMethod(MethodCallExpr n, String name, int x) {

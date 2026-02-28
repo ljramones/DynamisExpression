@@ -16,13 +16,19 @@
 
 package org.mvel3.transpiler;
 
-public class MVELTranspilerException extends RuntimeException {
+import org.mvel3.ExpressionTranspileException;
+
+public class MVELTranspilerException extends ExpressionTranspileException {
 
     public MVELTranspilerException(String message) {
-        super(message);
+        super(message, null);
+    }
+
+    public MVELTranspilerException(String message, Throwable cause) {
+        super(message, null, cause);
     }
 
     public MVELTranspilerException(ClassNotFoundException e) {
-        super(e);
+        super(e.getMessage(), null, e);
     }
 }

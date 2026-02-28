@@ -214,7 +214,7 @@ public class OverloadRewriter {
             case LESS : op = "compareTo"; break;
             case LESS_EQUALS : op = "compareTo"; break;
             default:
-                throw new RuntimeException("Overloading not supported for the operator: " + opEnum);
+                throw new org.mvel3.ExpressionTranspileException("Operator overloading not supported for: " + opEnum, e1 + " " + opEnum + " " + e2);
         }
 
         MethodCallExpr methodCallExpr;

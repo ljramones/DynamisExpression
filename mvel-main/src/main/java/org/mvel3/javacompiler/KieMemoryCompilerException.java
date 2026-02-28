@@ -16,13 +16,19 @@
 
 package org.mvel3.javacompiler;
 
-public class KieMemoryCompilerException extends RuntimeException {
+import org.mvel3.ExpressionCompileException;
+
+public class KieMemoryCompilerException extends ExpressionCompileException {
+
+    public KieMemoryCompilerException(String diagnostics, String generatedSource) {
+        super("Compilation failed: " + diagnostics, generatedSource, diagnostics);
+    }
 
     public KieMemoryCompilerException(String message, Throwable cause) {
-        super(message, cause);
+        super(message, null, null, cause);
     }
 
     public KieMemoryCompilerException(String message) {
-        super(message);
+        super(message, null, null);
     }
 }

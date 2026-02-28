@@ -45,12 +45,10 @@ import org.mvel3.transpiler.EvalPre;
 import org.mvel3.transpiler.MVELTranspiler;
 import org.mvel3.transpiler.TranspiledResult;
 import org.mvel3.transpiler.context.Declaration;
-import org.mvel3.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
@@ -186,25 +184,6 @@ public class MVELCompiler {
         return evaluator;
     }
 
-    public Method getMethod(Class contextClass, String var)  {
-        Method method = null;
-        try {
-            String getterName = "get" + StringUtils.ucFirst(var);
-            method = contextClass.getMethod(getterName);
-        } catch (NoSuchMethodException e) {
-            // swallow
-        }
-
-        try {
-            method = contextClass.getMethod(var);
-        } catch (NoSuchMethodException e) {
-            // swallow
-        }
-
-        return method;
-    }
-
-
     private String evaluatorFullQualifiedName(CompilationUnit evaluatorCompilationUnit) {
         ClassOrInterfaceDeclaration evaluatorClass = evaluatorCompilationUnit
                 .findFirst(ClassOrInterfaceDeclaration.class)
@@ -221,7 +200,9 @@ public class MVELCompiler {
         try {
             evaluator = (T) evaluatorDefinition.getConstructor().newInstance();
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-            throw new RuntimeException(e);
+            throw new ExpressionCompileException(
+                "Failed to instantiate evaluator class: " + evaluatorDefinition.getName(),
+                null, e.getMessage(), e);
         }
         return evaluator;
     }

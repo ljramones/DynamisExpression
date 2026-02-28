@@ -142,7 +142,7 @@ public class CoerceRewriter {
     private void integerToDateCoercion() {
         ParseResult<ClassOrInterfaceType> result = context.getParser().parseClassOrInterfaceType("java.util.Date");
         if (!result.isSuccessful()) {
-            throw new RuntimeException("Cannot resolve type:" + result.getProblems());
+            throw new org.mvel3.TypeResolutionException(result.getProblems().toString(), null);
         }
 
         final ClassOrInterfaceType dateType = result.getResult().get();

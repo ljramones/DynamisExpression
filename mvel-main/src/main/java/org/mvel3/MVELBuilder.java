@@ -263,7 +263,9 @@ public class MVELBuilder<C, W, O> {
 
     private MVELBuilder<C, W, O> outType(Type<O> outType) {
         if (outType.getClazz().isPrimitive()) {
-            throw new RuntimeException("Return type must match generics and cannot be a primitive");
+            throw new ExpressionTranspileException(
+                "Return type must match generics and cannot be a primitive. Got: " + outType.getClazz().getName(),
+                outType.getCanonicalGenericsName());
         }
         this.outType = outType;
         return this;
@@ -339,7 +341,10 @@ public class MVELBuilder<C, W, O> {
         // Either the root and context vars are the same, and no context variables.
         // Or the root variable must be a
         if ( variableDeclarations.isEmpty() && contextDeclaration == null) {
-            throw new RuntimeException("These should be declared Void if not used");
+            throw new ExpressionTranspileException(
+                "No context or variable declarations provided. Set contextDeclaration() or addDeclaration(). " +
+                "Use Void.class if context is not needed.",
+                content != null ? content : "<no expression set>");
         }
 
         if (withDeclaration != VOID_DECLARATION &&

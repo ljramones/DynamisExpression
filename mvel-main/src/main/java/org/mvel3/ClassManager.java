@@ -52,12 +52,18 @@ public class ClassManager {
                         Class<?> c = lookup.defineHiddenClass(entry.getValue(), true).lookupClass();
                         classes.put(entry.getKey(), c);
                     } catch (IllegalAccessException ex) {
-                        throw new RuntimeException("Unable to instantiate Lambda", ex);
+                        throw new ExpressionCompileException(
+                            "Failed to define hidden class '" + entry.getKey() + "': access denied",
+                            null, ex.getMessage(), ex);
                     }
                     return e;
                 });
+            } catch (ExpressionCompileException e) {
+                throw e;
             } catch (Exception e) {
-                throw new RuntimeException("Unable to instantiate Lambda", e);
+                throw new ExpressionCompileException(
+                    "Failed to define hidden class '" + entry.getKey() + "'",
+                    null, e.getMessage(), e);
             }
         }
     }

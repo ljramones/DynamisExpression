@@ -16,6 +16,8 @@ package org.mvel3.javacompiler;
 
 
 import org.mvel3.util.PortablePath;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.NestingKind;
@@ -65,6 +67,8 @@ import java.util.jar.JarEntry;
  * CompilationProblemHandler as soon as a problem is found.
  */
 public class JavaCompiler {
+
+    private static final Logger log = LoggerFactory.getLogger(JavaCompiler.class);
 
     boolean DUMP_GENERATED_CLASSES = false;
 
@@ -118,7 +122,7 @@ public class JavaCompiler {
                 jFileManager.setLocation(StandardLocation.CLASS_PATH, pSettings.getClasspathLocations());
                 jFileManager.setLocation(StandardLocation.CLASS_OUTPUT, Collections.singletonList(new File("target/classes")));
             } catch (IOException e) {
-                // ignore if cannot set the classpath
+                log.warn("Failed to set classpath on file manager. Compilation may fail: {}", e.getMessage());
             }
 
             try (MemoryFileManager fileManager = new MemoryFileManager( jFileManager, pClassLoader )) {

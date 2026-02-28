@@ -152,7 +152,7 @@ class ResolvedStaticImportTest {
 
         assertThatException().isThrownBy(() -> {
             Evaluator<Map<String, Object>, Void, String> evaluator = compiler.compile(eval);
-        });
+        }).isInstanceOf(DynamisExpressionException.class);
     }
 
     @Test

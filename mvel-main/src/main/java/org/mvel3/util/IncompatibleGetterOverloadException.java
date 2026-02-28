@@ -1,6 +1,8 @@
 package org.mvel3.util;
 
-public class IncompatibleGetterOverloadException extends RuntimeException {
+import org.mvel3.MethodResolutionException;
+
+public class IncompatibleGetterOverloadException extends MethodResolutionException {
 
     private static final long serialVersionUID = -2359365094676377091L;
     private Class<?> klass;
@@ -10,7 +12,7 @@ public class IncompatibleGetterOverloadException extends RuntimeException {
     private Class<?> newType;
 
     public IncompatibleGetterOverloadException(Class<?> klass, String oldName, Class<?> oldType, String newName, Class<?> newType) {
-        super(" Imcompatible Getter overloading detected in class " + klass.getName() + " : " + oldName + " (" + oldType + ") vs " + newName + " (" + newType + ") ");
+        super(klass.getName(), oldName + " vs " + newName, 0);
         this.klass = klass;
         this.oldName = oldName;
         this.oldType = oldType;

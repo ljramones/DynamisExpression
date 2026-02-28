@@ -119,7 +119,9 @@ public class KieMemoryCompiler {
                 compiler.compile( classNames, reader, store, classLoader, compilerSettings);
 
         if (res.getErrors().length > 0) {
-            throw new KieMemoryCompilerException(Arrays.toString( res.getErrors() ));
+            String diagnostics = Arrays.toString(res.getErrors());
+            String source = classNameSourceMap.values().stream().findFirst().orElse("<unavailable>");
+            throw new KieMemoryCompilerException(diagnostics, source);
         }
 
         Map<String, byte[]> toReturn = new HashMap<>();

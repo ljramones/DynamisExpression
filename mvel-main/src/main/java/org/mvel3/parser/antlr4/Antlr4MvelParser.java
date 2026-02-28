@@ -59,6 +59,7 @@ import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.tree.ParseTree;
+import org.mvel3.ExpressionParseException;
 import org.mvel3.parser.MvelParser;
 import org.mvel3.parser.Provider;
 import org.mvel3.util.ProviderUtils;
@@ -105,13 +106,19 @@ public class Antlr4MvelParser implements MvelParser {
             ParseTree tree = parser.mvelStart();
             
             if (!errors.isEmpty()) {
-                throw new RuntimeException("Parse errors: " + String.join(", ", errors));
+                throw new ExpressionParseException(
+                    "Parse errors: " + String.join(", ", errors),
+                    expression, 0, 0);
             }
-            
+
             return tree;
-            
+
+        } catch (ExpressionParseException e) {
+            throw e;
         } catch (Exception e) {
-            throw new RuntimeException("Parse error: " + e.getMessage(), e);
+            throw new ExpressionParseException(
+                "Parse error: " + e.getMessage(),
+                expression, 0, 0, e);
         }
     }
 
@@ -126,10 +133,11 @@ public class Antlr4MvelParser implements MvelParser {
 
     // The main parse method
     public ParseResult parse(Antlr4ParseStart start, final Provider provider) {
+        String input = null;
         try {
-            String input = ProviderUtils.readAll(provider);
+            input = ProviderUtils.readAll(provider);
             logger.trace("Parsing with input: {}", input);
-            
+
             // Create ANTLR4 lexer and parser
             CharStream charStream = CharStreams.fromString(input);
             Mvel3Lexer lexer = new Mvel3Lexer(charStream);
@@ -154,13 +162,19 @@ public class Antlr4MvelParser implements MvelParser {
             logger.trace("Visitor result type: {}, value: {}", result != null ? result.getClass().getSimpleName() : "null", result);
 
             if (!errors.isEmpty()) {
-                throw new RuntimeException("Parse errors: " + String.join(", ", errors));
+                throw new ExpressionParseException(
+                    "Parse errors: " + String.join(", ", errors),
+                    input, 0, 0);
             }
 
             return new ParseResult<>(result, Collections.emptyList(), new CommentsCollection());
 
+        } catch (ExpressionParseException e) {
+            throw e;
         } catch (Exception e) {
-            throw new RuntimeException("Parse error: " + e.getMessage(), e);
+            throw new ExpressionParseException(
+                "Parse error: " + e.getMessage(),
+                input != null ? input : "<unavailable>", 0, 0, e);
         }
     }
 
