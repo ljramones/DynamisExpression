@@ -14,6 +14,12 @@ HASH      : '#';
 EXCL_DOT  : '!.';
 POWER     : '**';
 
+// Override Java CHAR_LITERAL to allow multi-character single-quoted strings.
+// In MVEL, single-quoted values are strings, not Java chars: 'hello' == "hello"
+CHAR_LITERAL
+    : '\'' (~['\\\r\n] | EscapeSequence)+ '\''
+    ;
+
 // MVEL-specific literals (defined to avoid conflicts with imported tokens)
 // BigDecimal literals with 'B' suffix
 BigDecimalLiteral

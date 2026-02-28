@@ -66,7 +66,6 @@ import com.github.javaparser.ast.expr.AssignExpr;
 import com.github.javaparser.ast.expr.BinaryExpr;
 import com.github.javaparser.ast.expr.BooleanLiteralExpr;
 import com.github.javaparser.ast.expr.CastExpr;
-import com.github.javaparser.ast.expr.CharLiteralExpr;
 import com.github.javaparser.ast.expr.ClassExpr;
 import com.github.javaparser.ast.expr.ConditionalExpr;
 import com.github.javaparser.ast.expr.DoubleLiteralExpr;
@@ -1037,6 +1036,14 @@ public class Mvel3ToJavaParserVisitor extends Mvel3ParserBaseVisitor<Node> {
     }
 
     @Override
+    public Node visitRotateLeftExpression(Mvel3Parser.RotateLeftExpressionContext ctx) {
+        Expression left = (Expression) visit(ctx.expression(0));
+        Expression right = (Expression) visit(ctx.expression(1));
+        return new MethodCallExpr(createTokenRange(ctx), new NameExpr("Integer"), null,
+                new SimpleName("rotateLeft"), new NodeList<>(left, right));
+    }
+
+    @Override
     public Node visitBinaryOperatorExpression(Mvel3Parser.BinaryOperatorExpressionContext ctx) {
         Expression left = (Expression) visit(ctx.expression(0));
         Expression right = (Expression) visit(ctx.expression(1));
@@ -1603,11 +1610,12 @@ public class Mvel3ToJavaParserVisitor extends Mvel3ParserBaseVisitor<Node> {
             nullLiteral.setTokenRange(createTokenRange(ctx));
             return nullLiteral;
         } else if (ctx.CHAR_LITERAL() != null) {
+            // MVEL treats single-quoted values as strings: 'bar' == "bar"
             String text = ctx.CHAR_LITERAL().getText();
-            char value = text.charAt(1); // Simple case, more complex handling needed for escape sequences
-            CharLiteralExpr charLiteral = new CharLiteralExpr(value);
-            charLiteral.setTokenRange(createTokenRange(ctx));
-            return charLiteral;
+            String value = text.substring(1, text.length() - 1); // strip surrounding single quotes
+            StringLiteralExpr stringLiteral = new StringLiteralExpr(value);
+            stringLiteral.setTokenRange(createTokenRange(ctx));
+            return stringLiteral;
         } else if (ctx.TEXT_BLOCK() != null) {
             String rawText = ctx.TEXT_BLOCK().getText();
             // Extract content between triple quotes: """content"""

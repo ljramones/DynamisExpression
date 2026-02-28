@@ -159,9 +159,11 @@ class MVELTranspilerTest implements TranspilerTest {
     @Test
     void testBoxTypeWithBigDecimalAndIntegerValue() {
         for(Primitive p : CoerceRewriter.DECIMAL_PRIMITIVES) {
-            String value = (p == Primitive.CHAR) ? "'9'" : "\"9\"";
-            test("var x = 10B * " + p.toBoxedType() + ".valueOf(" + value + ");",
-                 "var x = BigDecimal.valueOf(10).multiply(BigDecimal.valueOf(" + p.toBoxedType() + ".valueOf(" + value + ")), java.math.MathContext.DECIMAL128);");
+            String inputValue = (p == Primitive.CHAR) ? "'9'" : "\"9\"";
+            // MVEL single-quoted '9' becomes string "9", coerced to char via "9".charAt(0)
+            String expectedValue = (p == Primitive.CHAR) ? "\"9\".charAt(0)" : "\"9\"";
+            test("var x = 10B * " + p.toBoxedType() + ".valueOf(" + inputValue + ");",
+                 "var x = BigDecimal.valueOf(10).multiply(BigDecimal.valueOf(" + p.toBoxedType() + ".valueOf(" + expectedValue + ")), java.math.MathContext.DECIMAL128);");
         }
     }
 
@@ -176,10 +178,12 @@ class MVELTranspilerTest implements TranspilerTest {
     @Test
     void testBoxTypeWithBigInteger() {
         for(Primitive p : CoerceRewriter.INTEGER_PRIMITIVES) {
-            String value = (p == Primitive.CHAR) ? "'9'" : "\"9\"";
+            String inputValue = (p == Primitive.CHAR) ? "'9'" : "\"9\"";
+            // MVEL single-quoted '9' becomes string "9", coerced to char via "9".charAt(0)
+            String expectedValue = (p == Primitive.CHAR) ? "\"9\".charAt(0)" : "\"9\"";
             test(ctx -> {},
-                 "var x = 10I * " + p.toBoxedType() + ".valueOf(" + value + ");",
-                 "var x = BigInteger.valueOf(10).multiply(BigInteger.valueOf(" + p.toBoxedType() + ".valueOf(" + value + ")));");
+                 "var x = 10I * " + p.toBoxedType() + ".valueOf(" + inputValue + ");",
+                 "var x = BigInteger.valueOf(10).multiply(BigInteger.valueOf(" + p.toBoxedType() + ".valueOf(" + expectedValue + ")));");
         }
     }
 

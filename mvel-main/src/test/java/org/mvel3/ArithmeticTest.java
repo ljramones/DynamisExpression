@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mvel3.transpiler.context.Declaration;
 
@@ -632,10 +631,19 @@ class ArithmeticTest {
     assertThat(executeExpressionWithDefaultVariables("five << 1")).isEqualTo(5 << 1);
   }
 
-  @Disabled("DROOLS-6572 - Generates wrong code - unable to parse <<<")
   @Test
-  void testUnsignedShiftLeft() {
-    assertThat(executeExpressionWithDefaultVariables("-2 <<< 0")).isEqualTo(2);
+  void testRotateLeft() {
+    assertThat(executeExpressionWithDefaultVariables("-2 <<< 0")).isEqualTo(Integer.rotateLeft(-2, 0));
+  }
+
+  @Test
+  void testRotateLeftNonZero() {
+    assertThat(executeExpressionWithDefaultVariables("1 <<< 1")).isEqualTo(Integer.rotateLeft(1, 1));
+  }
+
+  @Test
+  void testRotateLeftWithVariable() {
+    assertThat(executeExpressionWithDefaultVariables("five <<< 1")).isEqualTo(Integer.rotateLeft(5, 1));
   }
 
   @Test
@@ -800,7 +808,6 @@ class ArithmeticTest {
   }
 
   
-  @Disabled("DROOLS-6572 - Unable to parse : Confirm if single quotes are supported")
   @Test
   void testStringAppend() {
     String expression = "c + 'bar'";
