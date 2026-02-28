@@ -35,8 +35,6 @@ import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
 import org.mvel3.parser.ast.expr.DrlxExpression;
 import org.mvel3.parser.ast.expr.FullyQualifiedInlineCastExpr;
 import org.mvel3.parser.ast.expr.HalfBinaryExpr;
-import org.mvel3.parser.ast.expr.HalfPointFreeExpr;
-import org.mvel3.parser.ast.expr.PointFreeExpr;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpressionElement;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpression;
 import org.mvel3.parser.ast.expr.MapCreationLiteralExpressionKeyValuePair;
@@ -49,13 +47,6 @@ import org.mvel3.parser.ast.expr.TemporalLiteralInfiniteChunkExpr;
 import org.mvel3.parser.ast.expr.AbstractContextStatement;
 import org.mvel3.parser.ast.expr.ModifyStatement;
 import org.mvel3.parser.ast.expr.WithStatement;
-import org.mvel3.parser.ast.expr.OOPathChunk;
-import org.mvel3.parser.ast.expr.OOPathExpr;
-import org.mvel3.parser.ast.expr.RuleBody;
-import org.mvel3.parser.ast.expr.RuleConsequence;
-import org.mvel3.parser.ast.expr.RuleDeclaration;
-import org.mvel3.parser.ast.expr.RuleJoinedPatterns;
-import org.mvel3.parser.ast.expr.RulePattern;
 
 /**
  * A visitor that returns nothing, and has a default implementation for all its visit
@@ -817,29 +808,6 @@ public abstract class VoidVisitorAdapter<A> implements VoidVisitor<A> {
     }
 
     @Override
-    public void visit(final HalfPointFreeExpr n, final A arg) {
-        n.getArg1().accept(this, arg);
-        n.getArg2().accept(this, arg);
-        n.getArg3().accept(this, arg);
-        n.getArg4().accept(this, arg);
-        n.getOperator().accept(this, arg);
-        n.getRight().forEach(p -> p.accept(this, arg));
-        n.getComment().ifPresent(l -> l.accept(this, arg));
-    }
-
-    @Override
-    public void visit(final PointFreeExpr n, final A arg) {
-        n.getArg1().accept(this, arg);
-        n.getArg2().accept(this, arg);
-        n.getArg3().accept(this, arg);
-        n.getArg4().accept(this, arg);
-        n.getLeft().accept(this, arg);
-        n.getOperator().accept(this, arg);
-        n.getRight().forEach(p -> p.accept(this, arg));
-        n.getComment().ifPresent(l -> l.accept(this, arg));
-    }
-
-    @Override
     public void visit(final ListCreationLiteralExpressionElement n, final A arg) {
         n.getValue().accept(this, arg);
         n.getComment().ifPresent(l -> l.accept(this, arg));
@@ -915,56 +883,6 @@ public abstract class VoidVisitorAdapter<A> implements VoidVisitor<A> {
     public void visit(final WithStatement n, final A arg) {
         n.getExpressions().forEach(p -> p.accept(this, arg));
         n.getTarget().accept(this, arg);
-        n.getComment().ifPresent(l -> l.accept(this, arg));
-    }
-
-    @Override
-    public void visit(final OOPathChunk n, final A arg) {
-        n.getCondition().forEach(p -> p.accept(this, arg));
-        n.getField().accept(this, arg);
-        n.getInlineCast().ifPresent(l -> l.accept(this, arg));
-        n.getComment().ifPresent(l -> l.accept(this, arg));
-    }
-
-    @Override
-    public void visit(final OOPathExpr n, final A arg) {
-        n.getChunks().forEach(p -> p.accept(this, arg));
-        n.getComment().ifPresent(l -> l.accept(this, arg));
-    }
-
-    @Override
-    public void visit(final RuleBody n, final A arg) {
-        n.getItems().forEach(p -> p.accept(this, arg));
-        n.getComment().ifPresent(l -> l.accept(this, arg));
-    }
-
-    @Override
-    public void visit(final RuleConsequence n, final A arg) {
-        n.getStatement().accept(this, arg);
-        n.getComment().ifPresent(l -> l.accept(this, arg));
-    }
-
-    @Override
-    public void visit(final RuleDeclaration n, final A arg) {
-        n.getRuleBody().accept(this, arg);
-        n.getMembers().forEach(p -> p.accept(this, arg));
-        n.getModifiers().forEach(p -> p.accept(this, arg));
-        n.getName().accept(this, arg);
-        n.getAnnotations().forEach(p -> p.accept(this, arg));
-        n.getComment().ifPresent(l -> l.accept(this, arg));
-    }
-
-    @Override
-    public void visit(final RuleJoinedPatterns n, final A arg) {
-        n.getItems().forEach(p -> p.accept(this, arg));
-        n.getComment().ifPresent(l -> l.accept(this, arg));
-    }
-
-    @Override
-    public void visit(final RulePattern n, final A arg) {
-        n.getBind().accept(this, arg);
-        n.getExpr().accept(this, arg);
-        n.getType().accept(this, arg);
         n.getComment().ifPresent(l -> l.accept(this, arg));
     }
 }

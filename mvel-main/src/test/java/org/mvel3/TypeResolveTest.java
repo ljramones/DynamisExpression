@@ -40,7 +40,6 @@ import org.junit.jupiter.api.Test;
 import org.mvel3.parser.ast.expr.BigDecimalLiteralExpr;
 import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
 import org.mvel3.parser.ast.expr.HalfBinaryExpr;
-import org.mvel3.parser.ast.expr.HalfPointFreeExpr;
 import org.mvel3.parser.ast.expr.InlineCastExpr;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpression;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpressionElement;
@@ -49,7 +48,6 @@ import org.mvel3.parser.ast.expr.MapCreationLiteralExpressionKeyValuePair;
 import org.mvel3.parser.ast.expr.ModifyStatement;
 import org.mvel3.parser.ast.expr.NullSafeFieldAccessExpr;
 import org.mvel3.parser.ast.expr.NullSafeMethodCallExpr;
-import org.mvel3.parser.ast.expr.PointFreeExpr;
 import org.mvel3.parser.ast.expr.TemporalLiteralExpr;
 import org.mvel3.parser.ast.expr.WithStatement;
 import org.mvel3.transpiler.MVELTranspiler;
@@ -59,7 +57,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Test class for type resolution with mvel3 custom AST nodes, without rewriting.
- * Note: DrlxExpression specific nodes (PointFreeExpr, HalfPointFreeExpr) are tested in TypeResolveTestDrlxExpression
+ * Note: DrlxExpression specific nodes are tested in TypeResolveTestDrlxExpression
  */
 class TypeResolveTest {
 

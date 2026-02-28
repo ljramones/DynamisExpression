@@ -107,7 +107,6 @@ import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
 import org.mvel3.parser.ast.expr.DrlxExpression;
 import org.mvel3.parser.ast.expr.FullyQualifiedInlineCastExpr;
 import org.mvel3.parser.ast.expr.HalfBinaryExpr;
-import org.mvel3.parser.ast.expr.HalfPointFreeExpr;
 import org.mvel3.parser.ast.expr.InlineCastExpr;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpression;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpressionElement;
@@ -116,14 +115,6 @@ import org.mvel3.parser.ast.expr.MapCreationLiteralExpressionKeyValuePair;
 import org.mvel3.parser.ast.expr.ModifyStatement;
 import org.mvel3.parser.ast.expr.NullSafeFieldAccessExpr;
 import org.mvel3.parser.ast.expr.NullSafeMethodCallExpr;
-import org.mvel3.parser.ast.expr.OOPathChunk;
-import org.mvel3.parser.ast.expr.OOPathExpr;
-import org.mvel3.parser.ast.expr.PointFreeExpr;
-import org.mvel3.parser.ast.expr.RuleBody;
-import org.mvel3.parser.ast.expr.RuleConsequence;
-import org.mvel3.parser.ast.expr.RuleDeclaration;
-import org.mvel3.parser.ast.expr.RuleJoinedPatterns;
-import org.mvel3.parser.ast.expr.RulePattern;
 import org.mvel3.parser.ast.expr.TemporalLiteralChunkExpr;
 import org.mvel3.parser.ast.expr.TemporalLiteralExpr;
 import org.mvel3.parser.ast.expr.TemporalLiteralInfiniteChunkExpr;
@@ -140,45 +131,9 @@ public class DrlVoidVisitorAdapter<A> extends VoidVisitorAdapter<A> implements D
         this.wrapped = wrapped;
     }
 
-    public void visit(RuleDeclaration n, A arg) {
-        n.getName().accept(this, arg);
-        n.getRuleBody().accept(this, arg);
-    }
-
-    public void visit(RuleBody n, A arg) {
-        n.getItems().accept(this, arg);
-    }
-
-    public void visit(RulePattern n, A arg) {
-        n.getType().accept(this, arg);
-        n.getBind().accept(this, arg);
-        n.getExpr().accept(this, arg);
-        // n.getType() // has no accept method
-    }
-
-    public void visit(RuleJoinedPatterns n, A arg) {
-        n.getItems().accept(this, arg);
-        // n.getType() // has no accept method
-    }
-
     public void visit(DrlxExpression n, A arg) {
         n.getExpr().accept(this, arg);
         n.getBind().accept(this, arg);
-    }
-
-    public void visit(OOPathExpr n, A arg) {
-        n.getChunks().accept(this, arg);
-    }
-
-    public void visit(OOPathChunk n, A arg) {
-        // Why isn't this a NodeList?
-        n.getConditions().forEach(c -> c.accept(this, arg));
-        n.getField().accept(this, arg);
-        n.getInlineCast().ifPresent(inlineCast -> inlineCast.accept(this, arg));
-    }
-
-    public void visit(RuleConsequence n, A arg) {
-        n.getStatement().accept(this, arg);
     }
 
     public void visit(InlineCastExpr n, A arg) {
@@ -206,18 +161,6 @@ public class DrlVoidVisitorAdapter<A> extends VoidVisitorAdapter<A> implements D
         n.getTypeArguments().ifPresent(t -> t.accept(this, arg));
     }
 
-    public void visit(PointFreeExpr n, A arg) {
-        n.getLeft().accept(this, arg);
-        n.getOperator().accept(this, arg);
-        n.getRight().accept(this, arg);
-        n.getArg1().accept(this, arg);
-        n.getArg2().accept(this, arg);
-        n.getArg3().accept(this, arg);
-        n.getArg4().accept(this, arg);
-        n.getOperator().accept(this, arg);
-        n.getRight().accept(this, arg);
-    }
-
     public void visit(TemporalLiteralExpr n, A arg) {
         n.getChunks().accept(this, arg);
     }
@@ -230,15 +173,6 @@ public class DrlVoidVisitorAdapter<A> extends VoidVisitorAdapter<A> implements D
     public void visit(HalfBinaryExpr n, A arg) {
         // n.getOperator() // has no accept method
         // n.getMetaModel() // has no accept method
-        n.getRight().accept(this, arg);
-    }
-
-    public void visit(HalfPointFreeExpr n, A arg) {
-        n.getOperator().accept(this, arg);
-        n.getArg1().accept(this, arg);
-        n.getArg2().accept(this, arg);
-        n.getArg3().accept(this, arg);
-        n.getArg4().accept(this, arg);
         n.getRight().accept(this, arg);
     }
 

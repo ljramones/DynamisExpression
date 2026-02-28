@@ -35,8 +35,6 @@ import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
 import org.mvel3.parser.ast.expr.DrlxExpression;
 import org.mvel3.parser.ast.expr.FullyQualifiedInlineCastExpr;
 import org.mvel3.parser.ast.expr.HalfBinaryExpr;
-import org.mvel3.parser.ast.expr.HalfPointFreeExpr;
-import org.mvel3.parser.ast.expr.PointFreeExpr;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpressionElement;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpression;
 import org.mvel3.parser.ast.expr.MapCreationLiteralExpressionKeyValuePair;
@@ -49,13 +47,6 @@ import org.mvel3.parser.ast.expr.TemporalLiteralInfiniteChunkExpr;
 import org.mvel3.parser.ast.expr.AbstractContextStatement;
 import org.mvel3.parser.ast.expr.ModifyStatement;
 import org.mvel3.parser.ast.expr.WithStatement;
-import org.mvel3.parser.ast.expr.OOPathChunk;
-import org.mvel3.parser.ast.expr.OOPathExpr;
-import org.mvel3.parser.ast.expr.RuleBody;
-import org.mvel3.parser.ast.expr.RuleConsequence;
-import org.mvel3.parser.ast.expr.RuleDeclaration;
-import org.mvel3.parser.ast.expr.RuleJoinedPatterns;
-import org.mvel3.parser.ast.expr.RulePattern;
 
 public class NoCommentHashCodeVisitor implements GenericVisitor<Integer, Void> {
 
@@ -513,16 +504,6 @@ public class NoCommentHashCodeVisitor implements GenericVisitor<Integer, Void> {
     }
 
     @Override
-    public Integer visit(final HalfPointFreeExpr n, final Void arg) {
-        return (n.getArg1().accept(this, arg)) * 31 + (n.getArg2().accept(this, arg)) * 31 + (n.getArg3().accept(this, arg)) * 31 + (n.getArg4().accept(this, arg)) * 31 + (n.isNegated() ? 1 : 0) * 31 + (n.getOperator().accept(this, arg)) * 31 + (n.getRight().accept(this, arg));
-    }
-
-    @Override
-    public Integer visit(final PointFreeExpr n, final Void arg) {
-        return (n.getArg1().accept(this, arg)) * 31 + (n.getArg2().accept(this, arg)) * 31 + (n.getArg3().accept(this, arg)) * 31 + (n.getArg4().accept(this, arg)) * 31 + (n.getLeft().accept(this, arg)) * 31 + (n.isNegated() ? 1 : 0) * 31 + (n.getOperator().accept(this, arg)) * 31 + (n.getRight().accept(this, arg));
-    }
-
-    @Override
     public Integer visit(final ListCreationLiteralExpressionElement n, final Void arg) {
         return (n.getValue().accept(this, arg));
     }
@@ -580,40 +561,5 @@ public class NoCommentHashCodeVisitor implements GenericVisitor<Integer, Void> {
     @Override
     public Integer visit(final WithStatement n, final Void arg) {
         return (n.getExpressions().accept(this, arg)) * 31 + (n.getTarget().accept(this, arg));
-    }
-
-    @Override
-    public Integer visit(final OOPathChunk n, final Void arg) {
-        return (n.getCondition().accept(this, arg)) * 31 + (n.getField().accept(this, arg)) * 31 + (n.getInlineCast().isPresent() ? n.getInlineCast().get().accept(this, arg) : 0) * 31 + (n.isPassive() ? 1 : 0) * 31 + (n.isSingleValue() ? 1 : 0);
-    }
-
-    @Override
-    public Integer visit(final OOPathExpr n, final Void arg) {
-        return (n.getChunks().accept(this, arg));
-    }
-
-    @Override
-    public Integer visit(final RuleBody n, final Void arg) {
-        return (n.getItems().accept(this, arg));
-    }
-
-    @Override
-    public Integer visit(final RuleConsequence n, final Void arg) {
-        return (n.getStatement().accept(this, arg));
-    }
-
-    @Override
-    public Integer visit(final RuleDeclaration n, final Void arg) {
-        return (n.getRuleBody().accept(this, arg)) * 31 + (n.getMembers().accept(this, arg)) * 31 + (n.getModifiers().accept(this, arg)) * 31 + (n.getName().accept(this, arg)) * 31 + (n.getAnnotations().accept(this, arg));
-    }
-
-    @Override
-    public Integer visit(final RuleJoinedPatterns n, final Void arg) {
-        return (n.getItems().accept(this, arg)) * 31 + (n.getType().hashCode());
-    }
-
-    @Override
-    public Integer visit(final RulePattern n, final Void arg) {
-        return (n.getBind().accept(this, arg)) * 31 + (n.getExpr().accept(this, arg)) * 31 + (n.getType().accept(this, arg));
     }
 }

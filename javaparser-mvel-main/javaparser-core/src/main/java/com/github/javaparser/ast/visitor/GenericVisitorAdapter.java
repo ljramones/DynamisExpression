@@ -35,8 +35,6 @@ import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
 import org.mvel3.parser.ast.expr.DrlxExpression;
 import org.mvel3.parser.ast.expr.FullyQualifiedInlineCastExpr;
 import org.mvel3.parser.ast.expr.HalfBinaryExpr;
-import org.mvel3.parser.ast.expr.HalfPointFreeExpr;
-import org.mvel3.parser.ast.expr.PointFreeExpr;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpressionElement;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpression;
 import org.mvel3.parser.ast.expr.MapCreationLiteralExpressionKeyValuePair;
@@ -49,13 +47,6 @@ import org.mvel3.parser.ast.expr.TemporalLiteralInfiniteChunkExpr;
 import org.mvel3.parser.ast.expr.AbstractContextStatement;
 import org.mvel3.parser.ast.expr.ModifyStatement;
 import org.mvel3.parser.ast.expr.WithStatement;
-import org.mvel3.parser.ast.expr.OOPathChunk;
-import org.mvel3.parser.ast.expr.OOPathExpr;
-import org.mvel3.parser.ast.expr.RuleBody;
-import org.mvel3.parser.ast.expr.RuleConsequence;
-import org.mvel3.parser.ast.expr.RuleDeclaration;
-import org.mvel3.parser.ast.expr.RuleJoinedPatterns;
-import org.mvel3.parser.ast.expr.RulePattern;
 
 /**
  * A visitor that has a return value (R), and has a default implementation for all its visit
@@ -2338,93 +2329,6 @@ public abstract class GenericVisitorAdapter<R, A> implements GenericVisitor<R, A
     }
 
     @Override
-    public R visit(final HalfPointFreeExpr n, final A arg) {
-        R result;
-        {
-            result = n.getArg1().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        {
-            result = n.getArg2().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        {
-            result = n.getArg3().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        {
-            result = n.getArg4().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        {
-            result = n.getOperator().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        {
-            result = n.getRight().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        if (n.getComment().isPresent()) {
-            result = n.getComment().get().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        return null;
-    }
-
-    @Override
-    public R visit(final PointFreeExpr n, final A arg) {
-        R result;
-        {
-            result = n.getArg1().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        {
-            result = n.getArg2().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        {
-            result = n.getArg3().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        {
-            result = n.getArg4().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        {
-            result = n.getLeft().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        {
-            result = n.getOperator().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        {
-            result = n.getRight().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        if (n.getComment().isPresent()) {
-            result = n.getComment().get().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        return null;
-    }
-
-    @Override
     public R visit(final ListCreationLiteralExpressionElement n, final A arg) {
         R result;
         {
@@ -2640,158 +2544,6 @@ public abstract class GenericVisitorAdapter<R, A> implements GenericVisitor<R, A
         }
         {
             result = n.getTarget().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        if (n.getComment().isPresent()) {
-            result = n.getComment().get().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        return null;
-    }
-
-    @Override
-    public R visit(final OOPathChunk n, final A arg) {
-        R result;
-        {
-            result = n.getCondition().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        {
-            result = n.getField().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        if (n.getInlineCast().isPresent()) {
-            result = n.getInlineCast().get().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        if (n.getComment().isPresent()) {
-            result = n.getComment().get().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        return null;
-    }
-
-    @Override
-    public R visit(final OOPathExpr n, final A arg) {
-        R result;
-        {
-            result = n.getChunks().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        if (n.getComment().isPresent()) {
-            result = n.getComment().get().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        return null;
-    }
-
-    @Override
-    public R visit(final RuleBody n, final A arg) {
-        R result;
-        {
-            result = n.getItems().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        if (n.getComment().isPresent()) {
-            result = n.getComment().get().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        return null;
-    }
-
-    @Override
-    public R visit(final RuleConsequence n, final A arg) {
-        R result;
-        {
-            result = n.getStatement().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        if (n.getComment().isPresent()) {
-            result = n.getComment().get().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        return null;
-    }
-
-    @Override
-    public R visit(final RuleDeclaration n, final A arg) {
-        R result;
-        {
-            result = n.getRuleBody().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        {
-            result = n.getMembers().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        {
-            result = n.getModifiers().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        {
-            result = n.getName().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        {
-            result = n.getAnnotations().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        if (n.getComment().isPresent()) {
-            result = n.getComment().get().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        return null;
-    }
-
-    @Override
-    public R visit(final RuleJoinedPatterns n, final A arg) {
-        R result;
-        {
-            result = n.getItems().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        if (n.getComment().isPresent()) {
-            result = n.getComment().get().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        return null;
-    }
-
-    @Override
-    public R visit(final RulePattern n, final A arg) {
-        R result;
-        {
-            result = n.getBind().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        {
-            result = n.getExpr().accept(this, arg);
-            if (result != null)
-                return result;
-        }
-        {
-            result = n.getType().accept(this, arg);
             if (result != null)
                 return result;
         }

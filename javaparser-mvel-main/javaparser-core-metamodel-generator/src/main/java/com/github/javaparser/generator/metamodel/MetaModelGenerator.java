@@ -198,8 +198,6 @@ public class MetaModelGenerator extends AbstractGenerator {
 
         add(org.mvel3.parser.ast.expr.DrlxExpression.class);
         add(org.mvel3.parser.ast.expr.HalfBinaryExpr.class);
-        add(org.mvel3.parser.ast.expr.PointFreeExpr.class);
-        add(org.mvel3.parser.ast.expr.HalfPointFreeExpr.class);
         add(org.mvel3.parser.ast.expr.ListCreationLiteralExpression.class);
         add(org.mvel3.parser.ast.expr.ListCreationLiteralExpressionElement.class);
         add(org.mvel3.parser.ast.expr.MapCreationLiteralExpression.class);
@@ -216,15 +214,8 @@ public class MetaModelGenerator extends AbstractGenerator {
         add(org.mvel3.parser.ast.expr.ModifyStatement.class);
         add(org.mvel3.parser.ast.expr.WithStatement.class);
 
-        add(org.mvel3.parser.ast.expr.OOPathChunk.class);
-        add(org.mvel3.parser.ast.expr.OOPathExpr.class);
 
-        add(org.mvel3.parser.ast.expr.RuleItem.class);
-        add(org.mvel3.parser.ast.expr.RulePattern.class);
-        add(org.mvel3.parser.ast.expr.RuleJoinedPatterns.class);
-        add(org.mvel3.parser.ast.expr.RuleConsequence.class);
-        add(org.mvel3.parser.ast.expr.RuleBody.class);
-        add(org.mvel3.parser.ast.expr.RuleDeclaration.class);
+
     }};
 
     public MetaModelGenerator(SourceRoot sourceRoot) {

@@ -21,7 +21,6 @@ package org.mvel3.parser.printer;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.comments.Comment;
-import com.github.javaparser.ast.expr.AnnotationExpr;
 import com.github.javaparser.ast.expr.ArrayAccessExpr;
 import com.github.javaparser.ast.expr.BinaryExpr;
 import com.github.javaparser.ast.expr.CharLiteralExpr;
@@ -43,7 +42,6 @@ import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
 import org.mvel3.parser.ast.expr.DrlxExpression;
 import org.mvel3.parser.ast.expr.FullyQualifiedInlineCastExpr;
 import org.mvel3.parser.ast.expr.HalfBinaryExpr;
-import org.mvel3.parser.ast.expr.HalfPointFreeExpr;
 import org.mvel3.parser.ast.expr.InlineCastExpr;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpression;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpressionElement;
@@ -52,14 +50,6 @@ import org.mvel3.parser.ast.expr.MapCreationLiteralExpressionKeyValuePair;
 import org.mvel3.parser.ast.expr.ModifyStatement;
 import org.mvel3.parser.ast.expr.NullSafeFieldAccessExpr;
 import org.mvel3.parser.ast.expr.NullSafeMethodCallExpr;
-import org.mvel3.parser.ast.expr.OOPathChunk;
-import org.mvel3.parser.ast.expr.OOPathExpr;
-import org.mvel3.parser.ast.expr.PointFreeExpr;
-import org.mvel3.parser.ast.expr.RuleBody;
-import org.mvel3.parser.ast.expr.RuleConsequence;
-import org.mvel3.parser.ast.expr.RuleDeclaration;
-import org.mvel3.parser.ast.expr.RuleJoinedPatterns;
-import org.mvel3.parser.ast.expr.RulePattern;
 import org.mvel3.parser.ast.expr.TemporalChunkExpr;
 import org.mvel3.parser.ast.expr.TemporalLiteralChunkExpr;
 import org.mvel3.parser.ast.expr.TemporalLiteralExpr;
@@ -81,42 +71,6 @@ public class MVELPrintVisitor extends DefaultPrettyPrinterVisitor implements Drl
 
     public MVELPrintVisitor(PrinterConfiguration prettyPrinterConfiguration) {
         super(prettyPrinterConfiguration);
-    }
-
-    @Override
-    public void visit( RuleDeclaration n, Void arg ) {
-        printComment(n.getComment(), arg);
-
-        for (AnnotationExpr ae : n.getAnnotations()) {
-            ae.accept(this, arg);
-            printer.print(" ");
-        }
-
-        printer.print("rule ");
-        n.getName().accept(this, arg);
-        printer.println(" {");
-        n.getRuleBody().accept(this, arg);
-        printer.println("}");
-    }
-
-    @Override
-    public void visit(RuleBody ruleBody, Void arg) {
-    }
-
-    @Override
-    public void visit(RulePattern n, Void arg) {
-    }
-
-    @Override
-    public void visit(RuleJoinedPatterns n, Void arg) {
-    }
-
-    @Override
-    public void visit(OOPathChunk n, Void arg) {
-    }
-
-    @Override
-    public void visit(RuleConsequence n, Void arg) {
     }
 
     @Override
@@ -151,49 +105,6 @@ public class MVELPrintVisitor extends DefaultPrettyPrinterVisitor implements Drl
         printTypeArgs(nullSafeMethodCallExpr, arg);
         nullSafeMethodCallExpr.getName().accept( this, arg );
         printArguments(nullSafeMethodCallExpr.getArguments(), arg);
-    }
-
-    @Override
-    public void visit( PointFreeExpr pointFreeExpr, Void arg ) {
-        printComment(pointFreeExpr.getComment(), arg);
-        pointFreeExpr.getLeft().accept( this, arg );
-        if(pointFreeExpr.isNegated()) {
-            printer.print(" not");
-        }
-        printer.print(" ");
-        pointFreeExpr.getOperator().accept( this, arg );
-        if (pointFreeExpr.getArg1() != null) {
-            printer.print("[");
-            pointFreeExpr.getArg1().accept( this, arg );
-            if (pointFreeExpr.getArg2() != null) {
-                printer.print(",");
-                pointFreeExpr.getArg2().accept( this, arg );
-            }
-            if (pointFreeExpr.getArg3() != null) {
-                printer.print(",");
-                pointFreeExpr.getArg3().accept( this, arg );
-            }
-            if (pointFreeExpr.getArg4() != null) {
-                printer.print(",");
-                pointFreeExpr.getArg4().accept( this, arg );
-            }
-            printer.print("]");
-        }
-        printer.print(" ");
-        NodeList<Expression> rightExprs = pointFreeExpr.getRight();
-        if (rightExprs.size() == 1) {
-            rightExprs.get(0).accept( this, arg );
-        } else {
-            printer.print("(");
-            if(rightExprs.isNonEmpty()) {
-                rightExprs.get(0).accept(this, arg);
-            }
-            for (int i = 1; i < rightExprs.size(); i++) {
-                printer.print(", ");
-                rightExprs.get(i).accept( this, arg );
-            }
-            printer.print(")");
-        }
     }
 
     @Override
@@ -243,80 +154,11 @@ public class MVELPrintVisitor extends DefaultPrettyPrinterVisitor implements Drl
     }
 
     @Override
-    public void visit(OOPathExpr oopathExpr, Void arg) {
-        printComment(oopathExpr.getComment(), arg);
-        NodeList<OOPathChunk> chunks = oopathExpr.getChunks();
-        for (int i = 0; i <  chunks.size(); i++) {
-            final OOPathChunk chunk = chunks.get(i);
-            printer.print(chunk.isSingleValue() ? "." : "/");
-            chunk.accept(this, arg);
-            printer.print(chunk.getField().toString());
-
-            if (chunk.getInlineCast().isPresent()) {
-                printer.print("#");
-                chunk.getInlineCast().get().accept( this, arg );
-            }
-
-            List<DrlxExpression> condition = chunk.getConditions();
-            final Iterator<DrlxExpression> iterator = condition.iterator();
-            if (!condition.isEmpty()) {
-                printer.print("[");
-                DrlxExpression first = iterator.next();
-                first.accept(this, arg);
-                while(iterator.hasNext()) {
-                    printer.print(",");
-                    iterator.next().accept(this, arg);
-                }
-                printer.print("]");
-            }
-        }
-    }
-
-    @Override
     public void visit(HalfBinaryExpr n, Void arg) {
         printComment(n.getComment(), arg);
         printer.print(n.getOperator().asString());
         printer.print(" ");
         n.getRight().accept(this, arg);
-    }
-
-    @Override
-    public void visit(HalfPointFreeExpr pointFreeExpr, Void arg) {
-        printComment(pointFreeExpr.getComment(), arg);
-        if(pointFreeExpr.isNegated()) {
-            printer.print("not ");
-        }
-        pointFreeExpr.getOperator().accept( this, arg );
-        if (pointFreeExpr.getArg1() != null) {
-            printer.print("[");
-            pointFreeExpr.getArg1().accept( this, arg );
-            if (pointFreeExpr.getArg2() != null) {
-                printer.print(",");
-                pointFreeExpr.getArg2().accept( this, arg );
-            }
-            if (pointFreeExpr.getArg3() != null) {
-                printer.print(",");
-                pointFreeExpr.getArg3().accept( this, arg );
-            }
-            if (pointFreeExpr.getArg4() != null) {
-                printer.print(",");
-                pointFreeExpr.getArg4().accept( this, arg );
-            }
-            printer.print("]");
-        }
-        printer.print(" ");
-        NodeList<Expression> rightExprs = pointFreeExpr.getRight();
-        if (rightExprs.size() == 1) {
-            rightExprs.get(0).accept( this, arg );
-        } else {
-            printer.print("(");
-            rightExprs.get(0).accept( this, arg );
-            for (int i = 1; i < rightExprs.size(); i++) {
-                printer.print(", ");
-                rightExprs.get(i).accept( this, arg );
-            }
-            printer.print(")");
-        }
     }
 
     @Override

@@ -300,21 +300,6 @@ public final class JavaParserMetaModel {
         drlxExpressionMetaModel.getConstructorParameters().add(drlxExpressionMetaModel.exprPropertyMetaModel);
         halfBinaryExprMetaModel.getConstructorParameters().add(halfBinaryExprMetaModel.rightPropertyMetaModel);
         halfBinaryExprMetaModel.getConstructorParameters().add(halfBinaryExprMetaModel.operatorPropertyMetaModel);
-        pointFreeExprMetaModel.getConstructorParameters().add(pointFreeExprMetaModel.leftPropertyMetaModel);
-        pointFreeExprMetaModel.getConstructorParameters().add(pointFreeExprMetaModel.rightPropertyMetaModel);
-        pointFreeExprMetaModel.getConstructorParameters().add(pointFreeExprMetaModel.operatorPropertyMetaModel);
-        pointFreeExprMetaModel.getConstructorParameters().add(pointFreeExprMetaModel.negatedPropertyMetaModel);
-        pointFreeExprMetaModel.getConstructorParameters().add(pointFreeExprMetaModel.arg1PropertyMetaModel);
-        pointFreeExprMetaModel.getConstructorParameters().add(pointFreeExprMetaModel.arg2PropertyMetaModel);
-        pointFreeExprMetaModel.getConstructorParameters().add(pointFreeExprMetaModel.arg3PropertyMetaModel);
-        pointFreeExprMetaModel.getConstructorParameters().add(pointFreeExprMetaModel.arg4PropertyMetaModel);
-        halfPointFreeExprMetaModel.getConstructorParameters().add(halfPointFreeExprMetaModel.rightPropertyMetaModel);
-        halfPointFreeExprMetaModel.getConstructorParameters().add(halfPointFreeExprMetaModel.operatorPropertyMetaModel);
-        halfPointFreeExprMetaModel.getConstructorParameters().add(halfPointFreeExprMetaModel.negatedPropertyMetaModel);
-        halfPointFreeExprMetaModel.getConstructorParameters().add(halfPointFreeExprMetaModel.arg1PropertyMetaModel);
-        halfPointFreeExprMetaModel.getConstructorParameters().add(halfPointFreeExprMetaModel.arg2PropertyMetaModel);
-        halfPointFreeExprMetaModel.getConstructorParameters().add(halfPointFreeExprMetaModel.arg3PropertyMetaModel);
-        halfPointFreeExprMetaModel.getConstructorParameters().add(halfPointFreeExprMetaModel.arg4PropertyMetaModel);
         listCreationLiteralExpressionMetaModel.getConstructorParameters().add(listCreationLiteralExpressionMetaModel.expressionsPropertyMetaModel);
         listCreationLiteralExpressionElementMetaModel.getConstructorParameters().add(listCreationLiteralExpressionElementMetaModel.valuePropertyMetaModel);
         mapCreationLiteralExpressionMetaModel.getConstructorParameters().add(mapCreationLiteralExpressionMetaModel.expressionsPropertyMetaModel);
@@ -338,22 +323,6 @@ public final class JavaParserMetaModel {
         modifyStatementMetaModel.getConstructorParameters().add(abstractContextStatementMetaModel.expressionsPropertyMetaModel);
         withStatementMetaModel.getConstructorParameters().add(abstractContextStatementMetaModel.targetPropertyMetaModel);
         withStatementMetaModel.getConstructorParameters().add(abstractContextStatementMetaModel.expressionsPropertyMetaModel);
-        oOPathChunkMetaModel.getConstructorParameters().add(oOPathChunkMetaModel.fieldPropertyMetaModel);
-        oOPathChunkMetaModel.getConstructorParameters().add(oOPathChunkMetaModel.inlineCastPropertyMetaModel);
-        oOPathChunkMetaModel.getConstructorParameters().add(oOPathChunkMetaModel.conditionPropertyMetaModel);
-        oOPathExprMetaModel.getConstructorParameters().add(oOPathExprMetaModel.chunksPropertyMetaModel);
-        rulePatternMetaModel.getConstructorParameters().add(rulePatternMetaModel.typePropertyMetaModel);
-        rulePatternMetaModel.getConstructorParameters().add(rulePatternMetaModel.bindPropertyMetaModel);
-        rulePatternMetaModel.getConstructorParameters().add(rulePatternMetaModel.exprPropertyMetaModel);
-        ruleJoinedPatternsMetaModel.getConstructorParameters().add(ruleJoinedPatternsMetaModel.typePropertyMetaModel);
-        ruleJoinedPatternsMetaModel.getConstructorParameters().add(ruleJoinedPatternsMetaModel.itemsPropertyMetaModel);
-        ruleConsequenceMetaModel.getConstructorParameters().add(ruleConsequenceMetaModel.statementPropertyMetaModel);
-        ruleBodyMetaModel.getConstructorParameters().add(ruleBodyMetaModel.itemsPropertyMetaModel);
-        ruleDeclarationMetaModel.getConstructorParameters().add(typeDeclarationMetaModel.modifiersPropertyMetaModel);
-        ruleDeclarationMetaModel.getConstructorParameters().add(bodyDeclarationMetaModel.annotationsPropertyMetaModel);
-        ruleDeclarationMetaModel.getConstructorParameters().add(typeDeclarationMetaModel.namePropertyMetaModel);
-        ruleDeclarationMetaModel.getConstructorParameters().add(typeDeclarationMetaModel.membersPropertyMetaModel);
-        ruleDeclarationMetaModel.getConstructorParameters().add(ruleDeclarationMetaModel.ruleBodyPropertyMetaModel);
     }
 
     public static List<BaseNodeMetaModel> getNodeMetaModels() {
@@ -410,7 +379,6 @@ public final class JavaParserMetaModel {
         nodeMetaModels.add(forStmtMetaModel);
         nodeMetaModels.add(fullyQualifiedInlineCastExprMetaModel);
         nodeMetaModels.add(halfBinaryExprMetaModel);
-        nodeMetaModels.add(halfPointFreeExprMetaModel);
         nodeMetaModels.add(ifStmtMetaModel);
         nodeMetaModels.add(importDeclarationMetaModel);
         nodeMetaModels.add(initializerDeclarationMetaModel);
@@ -452,24 +420,15 @@ public final class JavaParserMetaModel {
         nodeMetaModels.add(nullLiteralExprMetaModel);
         nodeMetaModels.add(nullSafeFieldAccessExprMetaModel);
         nodeMetaModels.add(nullSafeMethodCallExprMetaModel);
-        nodeMetaModels.add(oOPathChunkMetaModel);
-        nodeMetaModels.add(oOPathExprMetaModel);
         nodeMetaModels.add(objectCreationExprMetaModel);
         nodeMetaModels.add(packageDeclarationMetaModel);
         nodeMetaModels.add(parameterMetaModel);
         nodeMetaModels.add(patternExprMetaModel);
-        nodeMetaModels.add(pointFreeExprMetaModel);
         nodeMetaModels.add(primitiveTypeMetaModel);
         nodeMetaModels.add(receiverParameterMetaModel);
         nodeMetaModels.add(recordDeclarationMetaModel);
         nodeMetaModels.add(referenceTypeMetaModel);
         nodeMetaModels.add(returnStmtMetaModel);
-        nodeMetaModels.add(ruleBodyMetaModel);
-        nodeMetaModels.add(ruleConsequenceMetaModel);
-        nodeMetaModels.add(ruleDeclarationMetaModel);
-        nodeMetaModels.add(ruleItemMetaModel);
-        nodeMetaModels.add(ruleJoinedPatternsMetaModel);
-        nodeMetaModels.add(rulePatternMetaModel);
         nodeMetaModels.add(simpleNameMetaModel);
         nodeMetaModels.add(singleMemberAnnotationExprMetaModel);
         nodeMetaModels.add(statementMetaModel);
@@ -953,36 +912,6 @@ public final class JavaParserMetaModel {
         halfBinaryExprMetaModel.getDeclaredPropertyMetaModels().add(halfBinaryExprMetaModel.operatorPropertyMetaModel);
         halfBinaryExprMetaModel.rightPropertyMetaModel = new PropertyMetaModel(halfBinaryExprMetaModel, "right", com.github.javaparser.ast.expr.Expression.class, Optional.of(expressionMetaModel), false, false, false, false);
         halfBinaryExprMetaModel.getDeclaredPropertyMetaModels().add(halfBinaryExprMetaModel.rightPropertyMetaModel);
-        pointFreeExprMetaModel.arg1PropertyMetaModel = new PropertyMetaModel(pointFreeExprMetaModel, "arg1", com.github.javaparser.ast.expr.Expression.class, Optional.of(expressionMetaModel), false, false, false, false);
-        pointFreeExprMetaModel.getDeclaredPropertyMetaModels().add(pointFreeExprMetaModel.arg1PropertyMetaModel);
-        pointFreeExprMetaModel.arg2PropertyMetaModel = new PropertyMetaModel(pointFreeExprMetaModel, "arg2", com.github.javaparser.ast.expr.Expression.class, Optional.of(expressionMetaModel), false, false, false, false);
-        pointFreeExprMetaModel.getDeclaredPropertyMetaModels().add(pointFreeExprMetaModel.arg2PropertyMetaModel);
-        pointFreeExprMetaModel.arg3PropertyMetaModel = new PropertyMetaModel(pointFreeExprMetaModel, "arg3", com.github.javaparser.ast.expr.Expression.class, Optional.of(expressionMetaModel), false, false, false, false);
-        pointFreeExprMetaModel.getDeclaredPropertyMetaModels().add(pointFreeExprMetaModel.arg3PropertyMetaModel);
-        pointFreeExprMetaModel.arg4PropertyMetaModel = new PropertyMetaModel(pointFreeExprMetaModel, "arg4", com.github.javaparser.ast.expr.Expression.class, Optional.of(expressionMetaModel), false, false, false, false);
-        pointFreeExprMetaModel.getDeclaredPropertyMetaModels().add(pointFreeExprMetaModel.arg4PropertyMetaModel);
-        pointFreeExprMetaModel.leftPropertyMetaModel = new PropertyMetaModel(pointFreeExprMetaModel, "left", com.github.javaparser.ast.expr.Expression.class, Optional.of(expressionMetaModel), false, false, false, false);
-        pointFreeExprMetaModel.getDeclaredPropertyMetaModels().add(pointFreeExprMetaModel.leftPropertyMetaModel);
-        pointFreeExprMetaModel.negatedPropertyMetaModel = new PropertyMetaModel(pointFreeExprMetaModel, "negated", boolean.class, Optional.empty(), false, false, false, false);
-        pointFreeExprMetaModel.getDeclaredPropertyMetaModels().add(pointFreeExprMetaModel.negatedPropertyMetaModel);
-        pointFreeExprMetaModel.operatorPropertyMetaModel = new PropertyMetaModel(pointFreeExprMetaModel, "operator", com.github.javaparser.ast.expr.SimpleName.class, Optional.of(simpleNameMetaModel), false, false, false, false);
-        pointFreeExprMetaModel.getDeclaredPropertyMetaModels().add(pointFreeExprMetaModel.operatorPropertyMetaModel);
-        pointFreeExprMetaModel.rightPropertyMetaModel = new PropertyMetaModel(pointFreeExprMetaModel, "right", com.github.javaparser.ast.expr.Expression.class, Optional.of(expressionMetaModel), false, false, true, false);
-        pointFreeExprMetaModel.getDeclaredPropertyMetaModels().add(pointFreeExprMetaModel.rightPropertyMetaModel);
-        halfPointFreeExprMetaModel.arg1PropertyMetaModel = new PropertyMetaModel(halfPointFreeExprMetaModel, "arg1", com.github.javaparser.ast.expr.Expression.class, Optional.of(expressionMetaModel), false, false, false, false);
-        halfPointFreeExprMetaModel.getDeclaredPropertyMetaModels().add(halfPointFreeExprMetaModel.arg1PropertyMetaModel);
-        halfPointFreeExprMetaModel.arg2PropertyMetaModel = new PropertyMetaModel(halfPointFreeExprMetaModel, "arg2", com.github.javaparser.ast.expr.Expression.class, Optional.of(expressionMetaModel), false, false, false, false);
-        halfPointFreeExprMetaModel.getDeclaredPropertyMetaModels().add(halfPointFreeExprMetaModel.arg2PropertyMetaModel);
-        halfPointFreeExprMetaModel.arg3PropertyMetaModel = new PropertyMetaModel(halfPointFreeExprMetaModel, "arg3", com.github.javaparser.ast.expr.Expression.class, Optional.of(expressionMetaModel), false, false, false, false);
-        halfPointFreeExprMetaModel.getDeclaredPropertyMetaModels().add(halfPointFreeExprMetaModel.arg3PropertyMetaModel);
-        halfPointFreeExprMetaModel.arg4PropertyMetaModel = new PropertyMetaModel(halfPointFreeExprMetaModel, "arg4", com.github.javaparser.ast.expr.Expression.class, Optional.of(expressionMetaModel), false, false, false, false);
-        halfPointFreeExprMetaModel.getDeclaredPropertyMetaModels().add(halfPointFreeExprMetaModel.arg4PropertyMetaModel);
-        halfPointFreeExprMetaModel.negatedPropertyMetaModel = new PropertyMetaModel(halfPointFreeExprMetaModel, "negated", boolean.class, Optional.empty(), false, false, false, false);
-        halfPointFreeExprMetaModel.getDeclaredPropertyMetaModels().add(halfPointFreeExprMetaModel.negatedPropertyMetaModel);
-        halfPointFreeExprMetaModel.operatorPropertyMetaModel = new PropertyMetaModel(halfPointFreeExprMetaModel, "operator", com.github.javaparser.ast.expr.SimpleName.class, Optional.of(simpleNameMetaModel), false, false, false, false);
-        halfPointFreeExprMetaModel.getDeclaredPropertyMetaModels().add(halfPointFreeExprMetaModel.operatorPropertyMetaModel);
-        halfPointFreeExprMetaModel.rightPropertyMetaModel = new PropertyMetaModel(halfPointFreeExprMetaModel, "right", com.github.javaparser.ast.expr.Expression.class, Optional.of(expressionMetaModel), false, false, true, false);
-        halfPointFreeExprMetaModel.getDeclaredPropertyMetaModels().add(halfPointFreeExprMetaModel.rightPropertyMetaModel);
         listCreationLiteralExpressionMetaModel.expressionsPropertyMetaModel = new PropertyMetaModel(listCreationLiteralExpressionMetaModel, "expressions", com.github.javaparser.ast.expr.Expression.class, Optional.of(expressionMetaModel), false, false, true, false);
         listCreationLiteralExpressionMetaModel.getDeclaredPropertyMetaModels().add(listCreationLiteralExpressionMetaModel.expressionsPropertyMetaModel);
         listCreationLiteralExpressionElementMetaModel.valuePropertyMetaModel = new PropertyMetaModel(listCreationLiteralExpressionElementMetaModel, "value", com.github.javaparser.ast.expr.Expression.class, Optional.of(expressionMetaModel), false, false, false, false);
@@ -1025,34 +954,6 @@ public final class JavaParserMetaModel {
         abstractContextStatementMetaModel.getDeclaredPropertyMetaModels().add(abstractContextStatementMetaModel.expressionsPropertyMetaModel);
         abstractContextStatementMetaModel.targetPropertyMetaModel = new PropertyMetaModel(abstractContextStatementMetaModel, "target", com.github.javaparser.ast.expr.Expression.class, Optional.of(expressionMetaModel), false, false, false, false);
         abstractContextStatementMetaModel.getDeclaredPropertyMetaModels().add(abstractContextStatementMetaModel.targetPropertyMetaModel);
-        oOPathChunkMetaModel.conditionPropertyMetaModel = new PropertyMetaModel(oOPathChunkMetaModel, "condition", org.mvel3.parser.ast.expr.DrlxExpression.class, Optional.of(drlxExpressionMetaModel), false, false, true, false);
-        oOPathChunkMetaModel.getDeclaredPropertyMetaModels().add(oOPathChunkMetaModel.conditionPropertyMetaModel);
-        oOPathChunkMetaModel.fieldPropertyMetaModel = new PropertyMetaModel(oOPathChunkMetaModel, "field", com.github.javaparser.ast.expr.SimpleName.class, Optional.of(simpleNameMetaModel), false, false, false, false);
-        oOPathChunkMetaModel.getDeclaredPropertyMetaModels().add(oOPathChunkMetaModel.fieldPropertyMetaModel);
-        oOPathChunkMetaModel.inlineCastPropertyMetaModel = new PropertyMetaModel(oOPathChunkMetaModel, "inlineCast", com.github.javaparser.ast.expr.SimpleName.class, Optional.of(simpleNameMetaModel), true, false, false, false);
-        oOPathChunkMetaModel.getDeclaredPropertyMetaModels().add(oOPathChunkMetaModel.inlineCastPropertyMetaModel);
-        oOPathChunkMetaModel.passivePropertyMetaModel = new PropertyMetaModel(oOPathChunkMetaModel, "passive", boolean.class, Optional.empty(), false, false, false, false);
-        oOPathChunkMetaModel.getDeclaredPropertyMetaModels().add(oOPathChunkMetaModel.passivePropertyMetaModel);
-        oOPathChunkMetaModel.singleValuePropertyMetaModel = new PropertyMetaModel(oOPathChunkMetaModel, "singleValue", boolean.class, Optional.empty(), false, false, false, false);
-        oOPathChunkMetaModel.getDeclaredPropertyMetaModels().add(oOPathChunkMetaModel.singleValuePropertyMetaModel);
-        oOPathExprMetaModel.chunksPropertyMetaModel = new PropertyMetaModel(oOPathExprMetaModel, "chunks", org.mvel3.parser.ast.expr.OOPathChunk.class, Optional.of(oOPathChunkMetaModel), false, false, true, false);
-        oOPathExprMetaModel.getDeclaredPropertyMetaModels().add(oOPathExprMetaModel.chunksPropertyMetaModel);
-        rulePatternMetaModel.bindPropertyMetaModel = new PropertyMetaModel(rulePatternMetaModel, "bind", com.github.javaparser.ast.expr.SimpleName.class, Optional.of(simpleNameMetaModel), false, false, false, false);
-        rulePatternMetaModel.getDeclaredPropertyMetaModels().add(rulePatternMetaModel.bindPropertyMetaModel);
-        rulePatternMetaModel.exprPropertyMetaModel = new PropertyMetaModel(rulePatternMetaModel, "expr", org.mvel3.parser.ast.expr.OOPathExpr.class, Optional.of(oOPathExprMetaModel), false, false, false, false);
-        rulePatternMetaModel.getDeclaredPropertyMetaModels().add(rulePatternMetaModel.exprPropertyMetaModel);
-        rulePatternMetaModel.typePropertyMetaModel = new PropertyMetaModel(rulePatternMetaModel, "type", com.github.javaparser.ast.expr.SimpleName.class, Optional.of(simpleNameMetaModel), false, false, false, false);
-        rulePatternMetaModel.getDeclaredPropertyMetaModels().add(rulePatternMetaModel.typePropertyMetaModel);
-        ruleJoinedPatternsMetaModel.itemsPropertyMetaModel = new PropertyMetaModel(ruleJoinedPatternsMetaModel, "items", org.mvel3.parser.ast.expr.RuleItem.class, Optional.of(ruleItemMetaModel), false, false, true, false);
-        ruleJoinedPatternsMetaModel.getDeclaredPropertyMetaModels().add(ruleJoinedPatternsMetaModel.itemsPropertyMetaModel);
-        ruleJoinedPatternsMetaModel.typePropertyMetaModel = new PropertyMetaModel(ruleJoinedPatternsMetaModel, "type", org.mvel3.parser.ast.expr.RuleJoinedPatterns.Type.class, Optional.empty(), false, false, false, false);
-        ruleJoinedPatternsMetaModel.getDeclaredPropertyMetaModels().add(ruleJoinedPatternsMetaModel.typePropertyMetaModel);
-        ruleConsequenceMetaModel.statementPropertyMetaModel = new PropertyMetaModel(ruleConsequenceMetaModel, "statement", com.github.javaparser.ast.stmt.Statement.class, Optional.of(statementMetaModel), false, false, false, false);
-        ruleConsequenceMetaModel.getDeclaredPropertyMetaModels().add(ruleConsequenceMetaModel.statementPropertyMetaModel);
-        ruleBodyMetaModel.itemsPropertyMetaModel = new PropertyMetaModel(ruleBodyMetaModel, "items", org.mvel3.parser.ast.expr.RuleItem.class, Optional.of(ruleItemMetaModel), false, false, true, false);
-        ruleBodyMetaModel.getDeclaredPropertyMetaModels().add(ruleBodyMetaModel.itemsPropertyMetaModel);
-        ruleDeclarationMetaModel.ruleBodyPropertyMetaModel = new PropertyMetaModel(ruleDeclarationMetaModel, "ruleBody", org.mvel3.parser.ast.expr.RuleBody.class, Optional.of(ruleBodyMetaModel), false, false, false, false);
-        ruleDeclarationMetaModel.getDeclaredPropertyMetaModels().add(ruleDeclarationMetaModel.ruleBodyPropertyMetaModel);
     }
 
     public static Optional<BaseNodeMetaModel> getNodeMetaModel(Class<?> c) {
@@ -1419,12 +1320,6 @@ public final class JavaParserMetaModel {
     public static final HalfBinaryExprMetaModel halfBinaryExprMetaModel = new HalfBinaryExprMetaModel(Optional.of(expressionMetaModel));
 
     @Generated("com.github.javaparser.generator.metamodel.NodeMetaModelGenerator")
-    public static final PointFreeExprMetaModel pointFreeExprMetaModel = new PointFreeExprMetaModel(Optional.of(expressionMetaModel));
-
-    @Generated("com.github.javaparser.generator.metamodel.NodeMetaModelGenerator")
-    public static final HalfPointFreeExprMetaModel halfPointFreeExprMetaModel = new HalfPointFreeExprMetaModel(Optional.of(expressionMetaModel));
-
-    @Generated("com.github.javaparser.generator.metamodel.NodeMetaModelGenerator")
     public static final ListCreationLiteralExpressionMetaModel listCreationLiteralExpressionMetaModel = new ListCreationLiteralExpressionMetaModel(Optional.of(expressionMetaModel));
 
     @Generated("com.github.javaparser.generator.metamodel.NodeMetaModelGenerator")
@@ -1462,30 +1357,6 @@ public final class JavaParserMetaModel {
 
     @Generated("com.github.javaparser.generator.metamodel.NodeMetaModelGenerator")
     public static final WithStatementMetaModel withStatementMetaModel = new WithStatementMetaModel(Optional.of(abstractContextStatementMetaModel));
-
-    @Generated("com.github.javaparser.generator.metamodel.NodeMetaModelGenerator")
-    public static final OOPathChunkMetaModel oOPathChunkMetaModel = new OOPathChunkMetaModel(Optional.of(expressionMetaModel));
-
-    @Generated("com.github.javaparser.generator.metamodel.NodeMetaModelGenerator")
-    public static final OOPathExprMetaModel oOPathExprMetaModel = new OOPathExprMetaModel(Optional.of(expressionMetaModel));
-
-    @Generated("com.github.javaparser.generator.metamodel.NodeMetaModelGenerator")
-    public static final RuleItemMetaModel ruleItemMetaModel = new RuleItemMetaModel(Optional.of(nodeMetaModel));
-
-    @Generated("com.github.javaparser.generator.metamodel.NodeMetaModelGenerator")
-    public static final RulePatternMetaModel rulePatternMetaModel = new RulePatternMetaModel(Optional.of(ruleItemMetaModel));
-
-    @Generated("com.github.javaparser.generator.metamodel.NodeMetaModelGenerator")
-    public static final RuleJoinedPatternsMetaModel ruleJoinedPatternsMetaModel = new RuleJoinedPatternsMetaModel(Optional.of(ruleItemMetaModel));
-
-    @Generated("com.github.javaparser.generator.metamodel.NodeMetaModelGenerator")
-    public static final RuleConsequenceMetaModel ruleConsequenceMetaModel = new RuleConsequenceMetaModel(Optional.of(ruleItemMetaModel));
-
-    @Generated("com.github.javaparser.generator.metamodel.NodeMetaModelGenerator")
-    public static final RuleBodyMetaModel ruleBodyMetaModel = new RuleBodyMetaModel(Optional.of(nodeMetaModel));
-
-    @Generated("com.github.javaparser.generator.metamodel.NodeMetaModelGenerator")
-    public static final RuleDeclarationMetaModel ruleDeclarationMetaModel = new RuleDeclarationMetaModel(Optional.of(typeDeclarationMetaModel));
 
     static {
         initializeNodeMetaModels();

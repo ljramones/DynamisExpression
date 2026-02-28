@@ -42,8 +42,6 @@ import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
 import org.mvel3.parser.ast.expr.DrlxExpression;
 import org.mvel3.parser.ast.expr.FullyQualifiedInlineCastExpr;
 import org.mvel3.parser.ast.expr.HalfBinaryExpr;
-import org.mvel3.parser.ast.expr.HalfPointFreeExpr;
-import org.mvel3.parser.ast.expr.PointFreeExpr;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpressionElement;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpression;
 import org.mvel3.parser.ast.expr.MapCreationLiteralExpressionKeyValuePair;
@@ -57,14 +55,6 @@ import org.mvel3.parser.ast.expr.TemporalLiteralInfiniteChunkExpr;
 import org.mvel3.parser.ast.expr.AbstractContextStatement;
 import org.mvel3.parser.ast.expr.ModifyStatement;
 import org.mvel3.parser.ast.expr.WithStatement;
-import org.mvel3.parser.ast.expr.OOPathChunk;
-import org.mvel3.parser.ast.expr.OOPathExpr;
-import org.mvel3.parser.ast.expr.RuleBody;
-import org.mvel3.parser.ast.expr.RuleConsequence;
-import org.mvel3.parser.ast.expr.RuleDeclaration;
-import org.mvel3.parser.ast.expr.RuleJoinedPatterns;
-import org.mvel3.parser.ast.expr.RulePattern;
-import org.mvel3.parser.ast.expr.RuleItem;
 
 /**
  * This visitor can be used to save time when some specific nodes needs
@@ -1428,50 +1418,6 @@ public class ModifierVisitor<A> implements GenericVisitor<Visitable, A> {
     }
 
     @Override
-    public Visitable visit(final HalfPointFreeExpr n, final A arg) {
-        Expression arg1 = (Expression) n.getArg1().accept(this, arg);
-        Expression arg2 = (Expression) n.getArg2().accept(this, arg);
-        Expression arg3 = (Expression) n.getArg3().accept(this, arg);
-        Expression arg4 = (Expression) n.getArg4().accept(this, arg);
-        SimpleName operator = (SimpleName) n.getOperator().accept(this, arg);
-        NodeList<Expression> right = modifyList(n.getRight(), arg);
-        Comment comment = n.getComment().map(s -> (Comment) s.accept(this, arg)).orElse(null);
-        if (arg1 == null || arg2 == null || arg3 == null || arg4 == null || operator == null)
-            return null;
-        n.setArg1(arg1);
-        n.setArg2(arg2);
-        n.setArg3(arg3);
-        n.setArg4(arg4);
-        n.setOperator(operator);
-        n.setRight(right);
-        n.setComment(comment);
-        return n;
-    }
-
-    @Override
-    public Visitable visit(final PointFreeExpr n, final A arg) {
-        Expression arg1 = (Expression) n.getArg1().accept(this, arg);
-        Expression arg2 = (Expression) n.getArg2().accept(this, arg);
-        Expression arg3 = (Expression) n.getArg3().accept(this, arg);
-        Expression arg4 = (Expression) n.getArg4().accept(this, arg);
-        Expression left = (Expression) n.getLeft().accept(this, arg);
-        SimpleName operator = (SimpleName) n.getOperator().accept(this, arg);
-        NodeList<Expression> right = modifyList(n.getRight(), arg);
-        Comment comment = n.getComment().map(s -> (Comment) s.accept(this, arg)).orElse(null);
-        if (arg1 == null || arg2 == null || arg3 == null || arg4 == null || left == null || operator == null)
-            return null;
-        n.setArg1(arg1);
-        n.setArg2(arg2);
-        n.setArg3(arg3);
-        n.setArg4(arg4);
-        n.setLeft(left);
-        n.setOperator(operator);
-        n.setRight(right);
-        n.setComment(comment);
-        return n;
-    }
-
-    @Override
     public Visitable visit(final ListCreationLiteralExpressionElement n, final A arg) {
         Expression value = (Expression) n.getValue().accept(this, arg);
         Comment comment = n.getComment().map(s -> (Comment) s.accept(this, arg)).orElse(null);
@@ -1603,93 +1549,6 @@ public class ModifierVisitor<A> implements GenericVisitor<Visitable, A> {
             return null;
         n.setExpressions(expressions);
         n.setTarget(target);
-        n.setComment(comment);
-        return n;
-    }
-
-    @Override
-    public Visitable visit(final OOPathChunk n, final A arg) {
-        NodeList<DrlxExpression> condition = modifyList(n.getCondition(), arg);
-        SimpleName field = (SimpleName) n.getField().accept(this, arg);
-        SimpleName inlineCast = n.getInlineCast().map(s -> (SimpleName) s.accept(this, arg)).orElse(null);
-        Comment comment = n.getComment().map(s -> (Comment) s.accept(this, arg)).orElse(null);
-        if (field == null)
-            return null;
-        n.setCondition(condition);
-        n.setField(field);
-        n.setInlineCast(inlineCast);
-        n.setComment(comment);
-        return n;
-    }
-
-    @Override
-    public Visitable visit(final OOPathExpr n, final A arg) {
-        NodeList<OOPathChunk> chunks = modifyList(n.getChunks(), arg);
-        Comment comment = n.getComment().map(s -> (Comment) s.accept(this, arg)).orElse(null);
-        n.setChunks(chunks);
-        n.setComment(comment);
-        return n;
-    }
-
-    @Override
-    public Visitable visit(final RuleBody n, final A arg) {
-        NodeList<RuleItem> items = modifyList(n.getItems(), arg);
-        Comment comment = n.getComment().map(s -> (Comment) s.accept(this, arg)).orElse(null);
-        n.setItems(items);
-        n.setComment(comment);
-        return n;
-    }
-
-    @Override
-    public Visitable visit(final RuleConsequence n, final A arg) {
-        Statement statement = (Statement) n.getStatement().accept(this, arg);
-        Comment comment = n.getComment().map(s -> (Comment) s.accept(this, arg)).orElse(null);
-        if (statement == null)
-            return null;
-        n.setStatement(statement);
-        n.setComment(comment);
-        return n;
-    }
-
-    @Override
-    public Visitable visit(final RuleDeclaration n, final A arg) {
-        NodeList<AnnotationExpr> annotations = modifyList(n.getAnnotations(), arg);
-        NodeList<Modifier> modifiers = modifyList(n.getModifiers(), arg);
-        RuleBody ruleBody = (RuleBody) n.getRuleBody().accept(this, arg);
-        NodeList<BodyDeclaration<?>> members = modifyList(n.getMembers(), arg);
-        SimpleName name = (SimpleName) n.getName().accept(this, arg);
-        Comment comment = n.getComment().map(s -> (Comment) s.accept(this, arg)).orElse(null);
-        if (ruleBody == null || name == null)
-            return null;
-        n.setAnnotations(annotations);
-        n.setModifiers(modifiers);
-        n.setRuleBody(ruleBody);
-        n.setMembers(members);
-        n.setName(name);
-        n.setComment(comment);
-        return n;
-    }
-
-    @Override
-    public Visitable visit(final RuleJoinedPatterns n, final A arg) {
-        NodeList<RuleItem> items = modifyList(n.getItems(), arg);
-        Comment comment = n.getComment().map(s -> (Comment) s.accept(this, arg)).orElse(null);
-        n.setItems(items);
-        n.setComment(comment);
-        return n;
-    }
-
-    @Override
-    public Visitable visit(final RulePattern n, final A arg) {
-        SimpleName bind = (SimpleName) n.getBind().accept(this, arg);
-        OOPathExpr expr = (OOPathExpr) n.getExpr().accept(this, arg);
-        SimpleName type = (SimpleName) n.getType().accept(this, arg);
-        Comment comment = n.getComment().map(s -> (Comment) s.accept(this, arg)).orElse(null);
-        if (bind == null || expr == null || type == null)
-            return null;
-        n.setBind(bind);
-        n.setExpr(expr);
-        n.setType(type);
         n.setComment(comment);
         return n;
     }

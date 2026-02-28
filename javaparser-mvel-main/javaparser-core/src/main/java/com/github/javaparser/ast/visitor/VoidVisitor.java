@@ -35,8 +35,6 @@ import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
 import org.mvel3.parser.ast.expr.DrlxExpression;
 import org.mvel3.parser.ast.expr.FullyQualifiedInlineCastExpr;
 import org.mvel3.parser.ast.expr.HalfBinaryExpr;
-import org.mvel3.parser.ast.expr.HalfPointFreeExpr;
-import org.mvel3.parser.ast.expr.PointFreeExpr;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpressionElement;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpression;
 import org.mvel3.parser.ast.expr.MapCreationLiteralExpressionKeyValuePair;
@@ -49,13 +47,6 @@ import org.mvel3.parser.ast.expr.TemporalLiteralInfiniteChunkExpr;
 import org.mvel3.parser.ast.expr.AbstractContextStatement;
 import org.mvel3.parser.ast.expr.ModifyStatement;
 import org.mvel3.parser.ast.expr.WithStatement;
-import org.mvel3.parser.ast.expr.OOPathChunk;
-import org.mvel3.parser.ast.expr.OOPathExpr;
-import org.mvel3.parser.ast.expr.RuleBody;
-import org.mvel3.parser.ast.expr.RuleConsequence;
-import org.mvel3.parser.ast.expr.RuleDeclaration;
-import org.mvel3.parser.ast.expr.RuleJoinedPatterns;
-import org.mvel3.parser.ast.expr.RulePattern;
 
 /**
  * A visitor that does not return anything.
@@ -276,10 +267,6 @@ public interface VoidVisitor<A> {
 
     void visit(HalfBinaryExpr n, A arg);
 
-    void visit(HalfPointFreeExpr n, A arg);
-
-    void visit(PointFreeExpr n, A arg);
-
     void visit(ListCreationLiteralExpressionElement n, A arg);
 
     void visit(ListCreationLiteralExpression n, A arg);
@@ -303,18 +290,4 @@ public interface VoidVisitor<A> {
     void visit(ModifyStatement n, A arg);
 
     void visit(WithStatement n, A arg);
-
-    void visit(OOPathChunk n, A arg);
-
-    void visit(OOPathExpr n, A arg);
-
-    void visit(RuleBody n, A arg);
-
-    void visit(RuleConsequence n, A arg);
-
-    void visit(RuleDeclaration n, A arg);
-
-    void visit(RuleJoinedPatterns n, A arg);
-
-    void visit(RulePattern n, A arg);
 }

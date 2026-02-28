@@ -35,8 +35,6 @@ import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
 import org.mvel3.parser.ast.expr.DrlxExpression;
 import org.mvel3.parser.ast.expr.FullyQualifiedInlineCastExpr;
 import org.mvel3.parser.ast.expr.HalfBinaryExpr;
-import org.mvel3.parser.ast.expr.HalfPointFreeExpr;
-import org.mvel3.parser.ast.expr.PointFreeExpr;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpressionElement;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpression;
 import org.mvel3.parser.ast.expr.MapCreationLiteralExpressionKeyValuePair;
@@ -49,13 +47,6 @@ import org.mvel3.parser.ast.expr.TemporalLiteralInfiniteChunkExpr;
 import org.mvel3.parser.ast.expr.AbstractContextStatement;
 import org.mvel3.parser.ast.expr.ModifyStatement;
 import org.mvel3.parser.ast.expr.WithStatement;
-import org.mvel3.parser.ast.expr.OOPathChunk;
-import org.mvel3.parser.ast.expr.OOPathExpr;
-import org.mvel3.parser.ast.expr.RuleBody;
-import org.mvel3.parser.ast.expr.RuleConsequence;
-import org.mvel3.parser.ast.expr.RuleDeclaration;
-import org.mvel3.parser.ast.expr.RuleJoinedPatterns;
-import org.mvel3.parser.ast.expr.RulePattern;
 
 /**
  * A visitor that calculates a deep hash code for a node by using the hash codes of all its properties,
@@ -513,16 +504,6 @@ public class ObjectIdentityHashCodeVisitor implements GenericVisitor<Integer, Vo
     }
 
     @Override
-    public Integer visit(final HalfPointFreeExpr n, final Void arg) {
-        return n.hashCode();
-    }
-
-    @Override
-    public Integer visit(final PointFreeExpr n, final Void arg) {
-        return n.hashCode();
-    }
-
-    @Override
     public Integer visit(final ListCreationLiteralExpressionElement n, final Void arg) {
         return n.hashCode();
     }
@@ -579,41 +560,6 @@ public class ObjectIdentityHashCodeVisitor implements GenericVisitor<Integer, Vo
 
     @Override
     public Integer visit(final WithStatement n, final Void arg) {
-        return n.hashCode();
-    }
-
-    @Override
-    public Integer visit(final OOPathChunk n, final Void arg) {
-        return n.hashCode();
-    }
-
-    @Override
-    public Integer visit(final OOPathExpr n, final Void arg) {
-        return n.hashCode();
-    }
-
-    @Override
-    public Integer visit(final RuleBody n, final Void arg) {
-        return n.hashCode();
-    }
-
-    @Override
-    public Integer visit(final RuleConsequence n, final Void arg) {
-        return n.hashCode();
-    }
-
-    @Override
-    public Integer visit(final RuleDeclaration n, final Void arg) {
-        return n.hashCode();
-    }
-
-    @Override
-    public Integer visit(final RuleJoinedPatterns n, final Void arg) {
-        return n.hashCode();
-    }
-
-    @Override
-    public Integer visit(final RulePattern n, final Void arg) {
         return n.hashCode();
     }
 }

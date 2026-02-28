@@ -35,8 +35,6 @@ import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
 import org.mvel3.parser.ast.expr.DrlxExpression;
 import org.mvel3.parser.ast.expr.FullyQualifiedInlineCastExpr;
 import org.mvel3.parser.ast.expr.HalfBinaryExpr;
-import org.mvel3.parser.ast.expr.HalfPointFreeExpr;
-import org.mvel3.parser.ast.expr.PointFreeExpr;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpressionElement;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpression;
 import org.mvel3.parser.ast.expr.MapCreationLiteralExpressionKeyValuePair;
@@ -49,13 +47,6 @@ import org.mvel3.parser.ast.expr.TemporalLiteralInfiniteChunkExpr;
 import org.mvel3.parser.ast.expr.AbstractContextStatement;
 import org.mvel3.parser.ast.expr.ModifyStatement;
 import org.mvel3.parser.ast.expr.WithStatement;
-import org.mvel3.parser.ast.expr.OOPathChunk;
-import org.mvel3.parser.ast.expr.OOPathExpr;
-import org.mvel3.parser.ast.expr.RuleBody;
-import org.mvel3.parser.ast.expr.RuleConsequence;
-import org.mvel3.parser.ast.expr.RuleDeclaration;
-import org.mvel3.parser.ast.expr.RuleJoinedPatterns;
-import org.mvel3.parser.ast.expr.RulePattern;
 
 /**
  * A visitor that calculates deep node equality by comparing all properties and child nodes of the node.
@@ -601,16 +592,6 @@ public class ObjectIdentityEqualsVisitor implements GenericVisitor<Boolean, Visi
     }
 
     @Override
-    public Boolean visit(final HalfPointFreeExpr n, final Visitable arg) {
-        return n == arg;
-    }
-
-    @Override
-    public Boolean visit(final PointFreeExpr n, final Visitable arg) {
-        return n == arg;
-    }
-
-    @Override
     public Boolean visit(final ListCreationLiteralExpressionElement n, final Visitable arg) {
         return n == arg;
     }
@@ -667,41 +648,6 @@ public class ObjectIdentityEqualsVisitor implements GenericVisitor<Boolean, Visi
 
     @Override
     public Boolean visit(final WithStatement n, final Visitable arg) {
-        return n == arg;
-    }
-
-    @Override
-    public Boolean visit(final OOPathChunk n, final Visitable arg) {
-        return n == arg;
-    }
-
-    @Override
-    public Boolean visit(final OOPathExpr n, final Visitable arg) {
-        return n == arg;
-    }
-
-    @Override
-    public Boolean visit(final RuleBody n, final Visitable arg) {
-        return n == arg;
-    }
-
-    @Override
-    public Boolean visit(final RuleConsequence n, final Visitable arg) {
-        return n == arg;
-    }
-
-    @Override
-    public Boolean visit(final RuleDeclaration n, final Visitable arg) {
-        return n == arg;
-    }
-
-    @Override
-    public Boolean visit(final RuleJoinedPatterns n, final Visitable arg) {
-        return n == arg;
-    }
-
-    @Override
-    public Boolean visit(final RulePattern n, final Visitable arg) {
         return n == arg;
     }
 }

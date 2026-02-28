@@ -35,8 +35,6 @@ import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
 import org.mvel3.parser.ast.expr.DrlxExpression;
 import org.mvel3.parser.ast.expr.FullyQualifiedInlineCastExpr;
 import org.mvel3.parser.ast.expr.HalfBinaryExpr;
-import org.mvel3.parser.ast.expr.HalfPointFreeExpr;
-import org.mvel3.parser.ast.expr.PointFreeExpr;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpressionElement;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpression;
 import org.mvel3.parser.ast.expr.MapCreationLiteralExpressionKeyValuePair;
@@ -49,13 +47,6 @@ import org.mvel3.parser.ast.expr.TemporalLiteralInfiniteChunkExpr;
 import org.mvel3.parser.ast.expr.AbstractContextStatement;
 import org.mvel3.parser.ast.expr.ModifyStatement;
 import org.mvel3.parser.ast.expr.WithStatement;
-import org.mvel3.parser.ast.expr.OOPathChunk;
-import org.mvel3.parser.ast.expr.OOPathExpr;
-import org.mvel3.parser.ast.expr.RuleBody;
-import org.mvel3.parser.ast.expr.RuleConsequence;
-import org.mvel3.parser.ast.expr.RuleDeclaration;
-import org.mvel3.parser.ast.expr.RuleJoinedPatterns;
-import org.mvel3.parser.ast.expr.RulePattern;
 
 /**
  * A visitor that returns nothing, and has default methods that are used when a specific visit method is not
@@ -604,16 +595,6 @@ public abstract class VoidVisitorWithDefaults<A> implements VoidVisitor<A> {
     }
 
     @Override
-    public void visit(final HalfPointFreeExpr n, final A arg) {
-        defaultAction(n, arg);
-    }
-
-    @Override
-    public void visit(final PointFreeExpr n, final A arg) {
-        defaultAction(n, arg);
-    }
-
-    @Override
     public void visit(final ListCreationLiteralExpressionElement n, final A arg) {
         defaultAction(n, arg);
     }
@@ -670,41 +651,6 @@ public abstract class VoidVisitorWithDefaults<A> implements VoidVisitor<A> {
 
     @Override
     public void visit(final WithStatement n, final A arg) {
-        defaultAction(n, arg);
-    }
-
-    @Override
-    public void visit(final OOPathChunk n, final A arg) {
-        defaultAction(n, arg);
-    }
-
-    @Override
-    public void visit(final OOPathExpr n, final A arg) {
-        defaultAction(n, arg);
-    }
-
-    @Override
-    public void visit(final RuleBody n, final A arg) {
-        defaultAction(n, arg);
-    }
-
-    @Override
-    public void visit(final RuleConsequence n, final A arg) {
-        defaultAction(n, arg);
-    }
-
-    @Override
-    public void visit(final RuleDeclaration n, final A arg) {
-        defaultAction(n, arg);
-    }
-
-    @Override
-    public void visit(final RuleJoinedPatterns n, final A arg) {
-        defaultAction(n, arg);
-    }
-
-    @Override
-    public void visit(final RulePattern n, final A arg) {
         defaultAction(n, arg);
     }
 }

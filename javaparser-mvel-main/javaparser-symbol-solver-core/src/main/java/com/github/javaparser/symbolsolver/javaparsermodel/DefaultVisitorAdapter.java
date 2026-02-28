@@ -38,9 +38,7 @@ import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
 import org.mvel3.parser.ast.expr.DrlxExpression;
 import org.mvel3.parser.ast.expr.FullyQualifiedInlineCastExpr;
 import org.mvel3.parser.ast.expr.HalfBinaryExpr;
-import org.mvel3.parser.ast.expr.HalfPointFreeExpr;
 import org.mvel3.parser.ast.expr.InlineCastExpr;
-import org.mvel3.parser.ast.expr.PointFreeExpr;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpression;
 import org.mvel3.parser.ast.expr.AbstractContextStatement;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpressionElement;
@@ -49,13 +47,6 @@ import org.mvel3.parser.ast.expr.MapCreationLiteralExpressionKeyValuePair;
 import org.mvel3.parser.ast.expr.ModifyStatement;
 import org.mvel3.parser.ast.expr.NullSafeFieldAccessExpr;
 import org.mvel3.parser.ast.expr.NullSafeMethodCallExpr;
-import org.mvel3.parser.ast.expr.OOPathChunk;
-import org.mvel3.parser.ast.expr.OOPathExpr;
-import org.mvel3.parser.ast.expr.RuleBody;
-import org.mvel3.parser.ast.expr.RuleConsequence;
-import org.mvel3.parser.ast.expr.RuleDeclaration;
-import org.mvel3.parser.ast.expr.RuleJoinedPatterns;
-import org.mvel3.parser.ast.expr.RulePattern;
 import org.mvel3.parser.ast.expr.TemporalLiteralChunkExpr;
 import org.mvel3.parser.ast.expr.TemporalLiteralExpr;
 import org.mvel3.parser.ast.expr.TemporalLiteralInfiniteChunkExpr;
@@ -238,16 +229,6 @@ public class DefaultVisitorAdapter implements GenericVisitor<ResolvedType, Boole
     }
 
     @Override
-    public ResolvedType visit(HalfPointFreeExpr node, Boolean aBoolean) {
-        throw new UnsupportedOperationException(node.getClass().getCanonicalName());
-    }
-
-    @Override
-    public ResolvedType visit(PointFreeExpr node, Boolean aBoolean) {
-        throw new UnsupportedOperationException(node.getClass().getCanonicalName());
-    }
-
-    @Override
     public ResolvedType visit(ListCreationLiteralExpression node, Boolean aBoolean) {
         throw new UnsupportedOperationException(node.getClass().getCanonicalName());
     }
@@ -274,41 +255,6 @@ public class DefaultVisitorAdapter implements GenericVisitor<ResolvedType, Boole
 
     @Override
     public ResolvedType visit(NullSafeMethodCallExpr node, Boolean aBoolean) {
-        throw new UnsupportedOperationException(node.getClass().getCanonicalName());
-    }
-
-    @Override
-    public ResolvedType visit(OOPathExpr node, Boolean aBoolean) {
-        throw new UnsupportedOperationException(node.getClass().getCanonicalName());
-    }
-
-    @Override
-    public ResolvedType visit(OOPathChunk node, Boolean aBoolean) {
-        throw new UnsupportedOperationException(node.getClass().getCanonicalName());
-    }
-
-    @Override
-    public ResolvedType visit(RuleDeclaration node, Boolean aBoolean) {
-        throw new UnsupportedOperationException(node.getClass().getCanonicalName());
-    }
-
-    @Override
-    public ResolvedType visit(RuleBody node, Boolean aBoolean) {
-        throw new UnsupportedOperationException(node.getClass().getCanonicalName());
-    }
-
-    @Override
-    public ResolvedType visit(RulePattern node, Boolean aBoolean) {
-        throw new UnsupportedOperationException(node.getClass().getCanonicalName());
-    }
-
-    @Override
-    public ResolvedType visit(RuleJoinedPatterns node, Boolean aBoolean) {
-        throw new UnsupportedOperationException(node.getClass().getCanonicalName());
-    }
-
-    @Override
-    public ResolvedType visit(RuleConsequence node, Boolean aBoolean) {
         throw new UnsupportedOperationException(node.getClass().getCanonicalName());
     }
 

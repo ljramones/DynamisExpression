@@ -35,7 +35,6 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import static com.github.javaparser.utils.CodeGenerationUtils.f;
 import static com.github.javaparser.utils.Utils.assertNotNull;
-import org.mvel3.parser.ast.expr.RuleDeclaration;
 
 /**
  * Any declaration that can appear between the { and } of a class, interface, enum, or record.
@@ -376,24 +375,5 @@ public abstract class BodyDeclaration<T extends BodyDeclaration<?>> extends Node
     @Generated("com.github.javaparser.generator.core.node.TypeCastingGenerator")
     public Optional<CompactConstructorDeclaration> toCompactConstructorDeclaration() {
         return Optional.empty();
-    }
-
-    @Generated("com.github.javaparser.generator.core.node.TypeCastingGenerator")
-    public boolean isRuleDeclaration() {
-        return false;
-    }
-
-    @Generated("com.github.javaparser.generator.core.node.TypeCastingGenerator")
-    public RuleDeclaration asRuleDeclaration() {
-        throw new IllegalStateException(f("%s is not RuleDeclaration, it is %s", this, this.getClass().getSimpleName()));
-    }
-
-    @Generated("com.github.javaparser.generator.core.node.TypeCastingGenerator")
-    public Optional<RuleDeclaration> toRuleDeclaration() {
-        return Optional.empty();
-    }
-
-    @Generated("com.github.javaparser.generator.core.node.TypeCastingGenerator")
-    public void ifRuleDeclaration(Consumer<RuleDeclaration> action) {
     }
 }

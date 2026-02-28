@@ -37,8 +37,6 @@ import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
 import org.mvel3.parser.ast.expr.DrlxExpression;
 import org.mvel3.parser.ast.expr.FullyQualifiedInlineCastExpr;
 import org.mvel3.parser.ast.expr.HalfBinaryExpr;
-import org.mvel3.parser.ast.expr.HalfPointFreeExpr;
-import org.mvel3.parser.ast.expr.PointFreeExpr;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpressionElement;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpression;
 import org.mvel3.parser.ast.expr.MapCreationLiteralExpressionKeyValuePair;
@@ -52,14 +50,6 @@ import org.mvel3.parser.ast.expr.TemporalLiteralInfiniteChunkExpr;
 import org.mvel3.parser.ast.expr.AbstractContextStatement;
 import org.mvel3.parser.ast.expr.ModifyStatement;
 import org.mvel3.parser.ast.expr.WithStatement;
-import org.mvel3.parser.ast.expr.OOPathChunk;
-import org.mvel3.parser.ast.expr.OOPathExpr;
-import org.mvel3.parser.ast.expr.RuleBody;
-import org.mvel3.parser.ast.expr.RuleConsequence;
-import org.mvel3.parser.ast.expr.RuleDeclaration;
-import org.mvel3.parser.ast.expr.RuleJoinedPatterns;
-import org.mvel3.parser.ast.expr.RulePattern;
-import org.mvel3.parser.ast.expr.RuleItem;
 
 /**
  * A visitor that clones (copies) a node and all its children.
@@ -1390,39 +1380,6 @@ public class CloneVisitor implements GenericVisitor<Visitable, Object> {
     }
 
     @Override
-    public Visitable visit(final HalfPointFreeExpr n, final Object arg) {
-        Expression arg1 = cloneNode(n.getArg1(), arg);
-        Expression arg2 = cloneNode(n.getArg2(), arg);
-        Expression arg3 = cloneNode(n.getArg3(), arg);
-        Expression arg4 = cloneNode(n.getArg4(), arg);
-        SimpleName operator = cloneNode(n.getOperator(), arg);
-        NodeList<Expression> right = cloneList(n.getRight(), arg);
-        Comment comment = cloneNode(n.getComment(), arg);
-        HalfPointFreeExpr r = new HalfPointFreeExpr(n.getTokenRange().orElse(null), right, operator, n.isNegated(), arg1, arg2, arg3, arg4);
-        r.setComment(comment);
-        n.getOrphanComments().stream().map(Comment::clone).forEach(r::addOrphanComment);
-        copyData(n, r);
-        return r;
-    }
-
-    @Override
-    public Visitable visit(final PointFreeExpr n, final Object arg) {
-        Expression arg1 = cloneNode(n.getArg1(), arg);
-        Expression arg2 = cloneNode(n.getArg2(), arg);
-        Expression arg3 = cloneNode(n.getArg3(), arg);
-        Expression arg4 = cloneNode(n.getArg4(), arg);
-        Expression left = cloneNode(n.getLeft(), arg);
-        SimpleName operator = cloneNode(n.getOperator(), arg);
-        NodeList<Expression> right = cloneList(n.getRight(), arg);
-        Comment comment = cloneNode(n.getComment(), arg);
-        PointFreeExpr r = new PointFreeExpr(n.getTokenRange().orElse(null), left, right, operator, n.isNegated(), arg1, arg2, arg3, arg4);
-        r.setComment(comment);
-        n.getOrphanComments().stream().map(Comment::clone).forEach(r::addOrphanComment);
-        copyData(n, r);
-        return r;
-    }
-
-    @Override
     public Visitable visit(final ListCreationLiteralExpressionElement n, final Object arg) {
         Expression value = cloneNode(n.getValue(), arg);
         Comment comment = cloneNode(n.getComment(), arg);
@@ -1552,91 +1509,6 @@ public class CloneVisitor implements GenericVisitor<Visitable, Object> {
         Expression target = cloneNode(n.getTarget(), arg);
         Comment comment = cloneNode(n.getComment(), arg);
         WithStatement r = new WithStatement(n.getTokenRange().orElse(null), target, expressions);
-        r.setComment(comment);
-        n.getOrphanComments().stream().map(Comment::clone).forEach(r::addOrphanComment);
-        copyData(n, r);
-        return r;
-    }
-
-    @Override
-    public Visitable visit(final OOPathChunk n, final Object arg) {
-        NodeList<DrlxExpression> condition = cloneList(n.getCondition(), arg);
-        SimpleName field = cloneNode(n.getField(), arg);
-        SimpleName inlineCast = cloneNode(n.getInlineCast(), arg);
-        Comment comment = cloneNode(n.getComment(), arg);
-        OOPathChunk r = new OOPathChunk(n.getTokenRange().orElse(null), field, inlineCast, condition);
-        r.setComment(comment);
-        n.getOrphanComments().stream().map(Comment::clone).forEach(r::addOrphanComment);
-        copyData(n, r);
-        return r;
-    }
-
-    @Override
-    public Visitable visit(final OOPathExpr n, final Object arg) {
-        NodeList<OOPathChunk> chunks = cloneList(n.getChunks(), arg);
-        Comment comment = cloneNode(n.getComment(), arg);
-        OOPathExpr r = new OOPathExpr(n.getTokenRange().orElse(null), chunks);
-        r.setComment(comment);
-        n.getOrphanComments().stream().map(Comment::clone).forEach(r::addOrphanComment);
-        copyData(n, r);
-        return r;
-    }
-
-    @Override
-    public Visitable visit(final RuleBody n, final Object arg) {
-        NodeList<RuleItem> items = cloneList(n.getItems(), arg);
-        Comment comment = cloneNode(n.getComment(), arg);
-        RuleBody r = new RuleBody(n.getTokenRange().orElse(null), items);
-        r.setComment(comment);
-        n.getOrphanComments().stream().map(Comment::clone).forEach(r::addOrphanComment);
-        copyData(n, r);
-        return r;
-    }
-
-    @Override
-    public Visitable visit(final RuleConsequence n, final Object arg) {
-        Statement statement = cloneNode(n.getStatement(), arg);
-        Comment comment = cloneNode(n.getComment(), arg);
-        RuleConsequence r = new RuleConsequence(n.getTokenRange().orElse(null), statement);
-        r.setComment(comment);
-        n.getOrphanComments().stream().map(Comment::clone).forEach(r::addOrphanComment);
-        copyData(n, r);
-        return r;
-    }
-
-    @Override
-    public Visitable visit(final RuleDeclaration n, final Object arg) {
-        RuleBody ruleBody = cloneNode(n.getRuleBody(), arg);
-        NodeList<BodyDeclaration<?>> members = cloneList(n.getMembers(), arg);
-        NodeList<Modifier> modifiers = cloneList(n.getModifiers(), arg);
-        SimpleName name = cloneNode(n.getName(), arg);
-        NodeList<AnnotationExpr> annotations = cloneList(n.getAnnotations(), arg);
-        Comment comment = cloneNode(n.getComment(), arg);
-        RuleDeclaration r = new RuleDeclaration(n.getTokenRange().orElse(null), modifiers, annotations, name, members, ruleBody);
-        r.setComment(comment);
-        n.getOrphanComments().stream().map(Comment::clone).forEach(r::addOrphanComment);
-        copyData(n, r);
-        return r;
-    }
-
-    @Override
-    public Visitable visit(final RuleJoinedPatterns n, final Object arg) {
-        NodeList<RuleItem> items = cloneList(n.getItems(), arg);
-        Comment comment = cloneNode(n.getComment(), arg);
-        RuleJoinedPatterns r = new RuleJoinedPatterns(n.getTokenRange().orElse(null), n.getType(), items);
-        r.setComment(comment);
-        n.getOrphanComments().stream().map(Comment::clone).forEach(r::addOrphanComment);
-        copyData(n, r);
-        return r;
-    }
-
-    @Override
-    public Visitable visit(final RulePattern n, final Object arg) {
-        SimpleName bind = cloneNode(n.getBind(), arg);
-        OOPathExpr expr = cloneNode(n.getExpr(), arg);
-        SimpleName type = cloneNode(n.getType(), arg);
-        Comment comment = cloneNode(n.getComment(), arg);
-        RulePattern r = new RulePattern(n.getTokenRange().orElse(null), type, bind, expr);
         r.setComment(comment);
         n.getOrphanComments().stream().map(Comment::clone).forEach(r::addOrphanComment);
         copyData(n, r);

@@ -37,8 +37,6 @@ import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
 import org.mvel3.parser.ast.expr.DrlxExpression;
 import org.mvel3.parser.ast.expr.FullyQualifiedInlineCastExpr;
 import org.mvel3.parser.ast.expr.HalfBinaryExpr;
-import org.mvel3.parser.ast.expr.HalfPointFreeExpr;
-import org.mvel3.parser.ast.expr.PointFreeExpr;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpressionElement;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpression;
 import org.mvel3.parser.ast.expr.MapCreationLiteralExpressionKeyValuePair;
@@ -51,13 +49,6 @@ import org.mvel3.parser.ast.expr.TemporalLiteralInfiniteChunkExpr;
 import org.mvel3.parser.ast.expr.AbstractContextStatement;
 import org.mvel3.parser.ast.expr.ModifyStatement;
 import org.mvel3.parser.ast.expr.WithStatement;
-import org.mvel3.parser.ast.expr.OOPathChunk;
-import org.mvel3.parser.ast.expr.OOPathExpr;
-import org.mvel3.parser.ast.expr.RuleBody;
-import org.mvel3.parser.ast.expr.RuleConsequence;
-import org.mvel3.parser.ast.expr.RuleDeclaration;
-import org.mvel3.parser.ast.expr.RuleJoinedPatterns;
-import org.mvel3.parser.ast.expr.RulePattern;
 
 /**
  * A visitor that calculates deep node equality by comparing all properties and child nodes of the node.
@@ -1507,52 +1498,6 @@ public class EqualsVisitor implements GenericVisitor<Boolean, Visitable> {
     }
 
     @Override
-    public Boolean visit(final HalfPointFreeExpr n, final Visitable arg) {
-        final HalfPointFreeExpr n2 = (HalfPointFreeExpr) arg;
-        if (!nodeEquals(n.getArg1(), n2.getArg1()))
-            return false;
-        if (!nodeEquals(n.getArg2(), n2.getArg2()))
-            return false;
-        if (!nodeEquals(n.getArg3(), n2.getArg3()))
-            return false;
-        if (!nodeEquals(n.getArg4(), n2.getArg4()))
-            return false;
-        if (!objEquals(n.isNegated(), n2.isNegated()))
-            return false;
-        if (!nodeEquals(n.getOperator(), n2.getOperator()))
-            return false;
-        if (!nodesEquals(n.getRight(), n2.getRight()))
-            return false;
-        if (!nodeEquals(n.getComment(), n2.getComment()))
-            return false;
-        return true;
-    }
-
-    @Override
-    public Boolean visit(final PointFreeExpr n, final Visitable arg) {
-        final PointFreeExpr n2 = (PointFreeExpr) arg;
-        if (!nodeEquals(n.getArg1(), n2.getArg1()))
-            return false;
-        if (!nodeEquals(n.getArg2(), n2.getArg2()))
-            return false;
-        if (!nodeEquals(n.getArg3(), n2.getArg3()))
-            return false;
-        if (!nodeEquals(n.getArg4(), n2.getArg4()))
-            return false;
-        if (!nodeEquals(n.getLeft(), n2.getLeft()))
-            return false;
-        if (!objEquals(n.isNegated(), n2.isNegated()))
-            return false;
-        if (!nodeEquals(n.getOperator(), n2.getOperator()))
-            return false;
-        if (!nodesEquals(n.getRight(), n2.getRight()))
-            return false;
-        if (!nodeEquals(n.getComment(), n2.getComment()))
-            return false;
-        return true;
-    }
-
-    @Override
     public Boolean visit(final ListCreationLiteralExpressionElement n, final Visitable arg) {
         final ListCreationLiteralExpressionElement n2 = (ListCreationLiteralExpressionElement) arg;
         if (!nodeEquals(n.getValue(), n2.getValue()))
@@ -1688,98 +1633,6 @@ public class EqualsVisitor implements GenericVisitor<Boolean, Visitable> {
         if (!nodesEquals(n.getExpressions(), n2.getExpressions()))
             return false;
         if (!nodeEquals(n.getTarget(), n2.getTarget()))
-            return false;
-        if (!nodeEquals(n.getComment(), n2.getComment()))
-            return false;
-        return true;
-    }
-
-    @Override
-    public Boolean visit(final OOPathChunk n, final Visitable arg) {
-        final OOPathChunk n2 = (OOPathChunk) arg;
-        if (!nodesEquals(n.getCondition(), n2.getCondition()))
-            return false;
-        if (!nodeEquals(n.getField(), n2.getField()))
-            return false;
-        if (!nodeEquals(n.getInlineCast(), n2.getInlineCast()))
-            return false;
-        if (!objEquals(n.isPassive(), n2.isPassive()))
-            return false;
-        if (!objEquals(n.isSingleValue(), n2.isSingleValue()))
-            return false;
-        if (!nodeEquals(n.getComment(), n2.getComment()))
-            return false;
-        return true;
-    }
-
-    @Override
-    public Boolean visit(final OOPathExpr n, final Visitable arg) {
-        final OOPathExpr n2 = (OOPathExpr) arg;
-        if (!nodesEquals(n.getChunks(), n2.getChunks()))
-            return false;
-        if (!nodeEquals(n.getComment(), n2.getComment()))
-            return false;
-        return true;
-    }
-
-    @Override
-    public Boolean visit(final RuleBody n, final Visitable arg) {
-        final RuleBody n2 = (RuleBody) arg;
-        if (!nodesEquals(n.getItems(), n2.getItems()))
-            return false;
-        if (!nodeEquals(n.getComment(), n2.getComment()))
-            return false;
-        return true;
-    }
-
-    @Override
-    public Boolean visit(final RuleConsequence n, final Visitable arg) {
-        final RuleConsequence n2 = (RuleConsequence) arg;
-        if (!nodeEquals(n.getStatement(), n2.getStatement()))
-            return false;
-        if (!nodeEquals(n.getComment(), n2.getComment()))
-            return false;
-        return true;
-    }
-
-    @Override
-    public Boolean visit(final RuleDeclaration n, final Visitable arg) {
-        final RuleDeclaration n2 = (RuleDeclaration) arg;
-        if (!nodeEquals(n.getRuleBody(), n2.getRuleBody()))
-            return false;
-        if (!nodesEquals(n.getMembers(), n2.getMembers()))
-            return false;
-        if (!nodesEquals(n.getModifiers(), n2.getModifiers()))
-            return false;
-        if (!nodeEquals(n.getName(), n2.getName()))
-            return false;
-        if (!nodesEquals(n.getAnnotations(), n2.getAnnotations()))
-            return false;
-        if (!nodeEquals(n.getComment(), n2.getComment()))
-            return false;
-        return true;
-    }
-
-    @Override
-    public Boolean visit(final RuleJoinedPatterns n, final Visitable arg) {
-        final RuleJoinedPatterns n2 = (RuleJoinedPatterns) arg;
-        if (!nodesEquals(n.getItems(), n2.getItems()))
-            return false;
-        if (!objEquals(n.getType(), n2.getType()))
-            return false;
-        if (!nodeEquals(n.getComment(), n2.getComment()))
-            return false;
-        return true;
-    }
-
-    @Override
-    public Boolean visit(final RulePattern n, final Visitable arg) {
-        final RulePattern n2 = (RulePattern) arg;
-        if (!nodeEquals(n.getBind(), n2.getBind()))
-            return false;
-        if (!nodeEquals(n.getExpr(), n2.getExpr()))
-            return false;
-        if (!nodeEquals(n.getType(), n2.getType()))
             return false;
         if (!nodeEquals(n.getComment(), n2.getComment()))
             return false;
