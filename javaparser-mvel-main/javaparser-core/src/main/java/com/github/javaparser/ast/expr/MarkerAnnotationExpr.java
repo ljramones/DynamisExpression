@@ -31,6 +31,7 @@ import com.github.javaparser.metamodel.MarkerAnnotationExprMetaModel;
 import java.util.Optional;
 import java.util.function.Consumer;
 import static com.github.javaparser.StaticJavaParser.parseName;
+import com.github.javaparser.ast.Node;
 
 /**
  * An annotation that uses only the annotation type name.

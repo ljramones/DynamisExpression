@@ -39,7 +39,6 @@ import static com.github.javaparser.utils.Utils.replaceElementByObjectIdentity;
 import org.mvel3.parser.ast.expr.InlineCastExpr;
 import org.mvel3.parser.ast.expr.BigDecimalLiteralExpr;
 import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
-import org.mvel3.parser.ast.expr.DrlNameExpr;
 import org.mvel3.parser.ast.expr.DrlxExpression;
 import org.mvel3.parser.ast.expr.FullyQualifiedInlineCastExpr;
 import org.mvel3.parser.ast.expr.HalfBinaryExpr;
@@ -1387,17 +1386,6 @@ public class ModifierVisitor<A> implements GenericVisitor<Visitable, A> {
     @Override
     public Visitable visit(final BigIntegerLiteralExpr n, final A arg) {
         Comment comment = n.getComment().map(s -> (Comment) s.accept(this, arg)).orElse(null);
-        n.setComment(comment);
-        return n;
-    }
-
-    @Override
-    public Visitable visit(final DrlNameExpr n, final A arg) {
-        SimpleName name = (SimpleName) n.getName().accept(this, arg);
-        Comment comment = n.getComment().map(s -> (Comment) s.accept(this, arg)).orElse(null);
-        if (name == null)
-            return null;
-        n.setName(name);
         n.setComment(comment);
         return n;
     }

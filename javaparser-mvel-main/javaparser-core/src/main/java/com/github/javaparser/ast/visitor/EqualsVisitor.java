@@ -34,7 +34,6 @@ import java.util.Optional;
 import org.mvel3.parser.ast.expr.InlineCastExpr;
 import org.mvel3.parser.ast.expr.BigDecimalLiteralExpr;
 import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
-import org.mvel3.parser.ast.expr.DrlNameExpr;
 import org.mvel3.parser.ast.expr.DrlxExpression;
 import org.mvel3.parser.ast.expr.FullyQualifiedInlineCastExpr;
 import org.mvel3.parser.ast.expr.HalfBinaryExpr;
@@ -1465,18 +1464,6 @@ public class EqualsVisitor implements GenericVisitor<Boolean, Visitable> {
     public Boolean visit(final BigIntegerLiteralExpr n, final Visitable arg) {
         final BigIntegerLiteralExpr n2 = (BigIntegerLiteralExpr) arg;
         if (!objEquals(n.getValue(), n2.getValue()))
-            return false;
-        if (!nodeEquals(n.getComment(), n2.getComment()))
-            return false;
-        return true;
-    }
-
-    @Override
-    public Boolean visit(final DrlNameExpr n, final Visitable arg) {
-        final DrlNameExpr n2 = (DrlNameExpr) arg;
-        if (!objEquals(n.getBackReferencesCount(), n2.getBackReferencesCount()))
-            return false;
-        if (!nodeEquals(n.getName(), n2.getName()))
             return false;
         if (!nodeEquals(n.getComment(), n2.getComment()))
             return false;

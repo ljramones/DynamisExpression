@@ -39,7 +39,7 @@ public class AbstractContextStatementMetaModel extends StatementMetaModel {
 
     @Generated("com.github.javaparser.generator.metamodel.NodeMetaModelGenerator")
     AbstractContextStatementMetaModel(Optional<BaseNodeMetaModel> superBaseNodeMetaModel) {
-        super(superBaseNodeMetaModel, AbstractContextStatement.class, "AbstractContextStatement", "org.mvel3.parser.ast.expr", false, true);
+        super(superBaseNodeMetaModel, AbstractContextStatement.class, "AbstractContextStatement", "org.mvel3.parser.ast.expr", true, true);
     }
 
     @Generated("com.github.javaparser.generator.metamodel.NodeMetaModelGenerator")

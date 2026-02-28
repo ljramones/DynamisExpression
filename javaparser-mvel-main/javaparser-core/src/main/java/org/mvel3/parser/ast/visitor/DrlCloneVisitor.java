@@ -19,7 +19,6 @@ import com.github.javaparser.ast.visitor.CloneVisitor;
 import com.github.javaparser.ast.visitor.Visitable;
 import org.mvel3.parser.ast.expr.BigDecimalLiteralExpr;
 import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
-import org.mvel3.parser.ast.expr.DrlNameExpr;
 import org.mvel3.parser.ast.expr.DrlxExpression;
 import org.mvel3.parser.ast.expr.FullyQualifiedInlineCastExpr;
 import org.mvel3.parser.ast.expr.HalfBinaryExpr;
@@ -148,11 +147,6 @@ public class DrlCloneVisitor extends CloneVisitor implements DrlGenericVisitor<V
     @Override
     public Visitable visit(TemporalLiteralInfiniteChunkExpr n, Object arg) {
         return null;
-    }
-
-    @Override
-    public Visitable visit(DrlNameExpr n, Object arg) {
-        return new DrlNameExpr(n.getName(), n.getBackReferencesCount());
     }
 
     @Override

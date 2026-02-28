@@ -104,7 +104,6 @@ import com.github.javaparser.ast.visitor.VoidVisitor;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 import org.mvel3.parser.ast.expr.BigDecimalLiteralExpr;
 import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
-import org.mvel3.parser.ast.expr.DrlNameExpr;
 import org.mvel3.parser.ast.expr.DrlxExpression;
 import org.mvel3.parser.ast.expr.FullyQualifiedInlineCastExpr;
 import org.mvel3.parser.ast.expr.HalfBinaryExpr;
@@ -255,10 +254,6 @@ public class DrlVoidVisitorAdapter<A> extends VoidVisitorAdapter<A> implements D
 
     public void visit(TemporalLiteralInfiniteChunkExpr n, A arg) {
         // has no getters
-    }
-
-    public void visit(DrlNameExpr n, A arg) {
-        // n.getBackReferencesCount() // has no accept method
     }
 
     public void visit(ModifyStatement n, A arg) {

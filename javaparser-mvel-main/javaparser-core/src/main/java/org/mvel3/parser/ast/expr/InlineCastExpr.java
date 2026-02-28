@@ -30,6 +30,7 @@ import com.github.javaparser.ast.AllFieldsConstructor;
 import com.github.javaparser.ast.Generated;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.expr.Expression;
+import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.nodeTypes.NodeWithExpression;
 import com.github.javaparser.ast.nodeTypes.NodeWithType;
 import com.github.javaparser.ast.observer.ObservableProperty;
@@ -49,7 +50,7 @@ public class InlineCastExpr extends Expression implements NodeWithType<InlineCas
     private Expression expression;
 
     public InlineCastExpr() {
-        this(null, new ClassOrInterfaceType(), new DrlNameExpr());
+        this(null, new ClassOrInterfaceType(), new NameExpr());
     }
 
     @AllFieldsConstructor

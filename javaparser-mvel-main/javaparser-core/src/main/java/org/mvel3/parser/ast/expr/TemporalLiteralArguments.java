@@ -22,4 +22,5 @@ import com.github.javaparser.ast.expr.Expression;
 /**
  * This is not an AST node.
  */
-public record TemporalLiteralArguments(Expression arg1, Expression arg2, Expression arg3, Expression arg4) {}
+public record TemporalLiteralArguments(Expression arg1, Expression arg2, Expression arg3, Expression arg4) {
+}

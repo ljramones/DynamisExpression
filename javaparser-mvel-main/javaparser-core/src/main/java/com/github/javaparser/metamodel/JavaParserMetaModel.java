@@ -296,8 +296,6 @@ public final class JavaParserMetaModel {
         fullyQualifiedInlineCastExprMetaModel.getConstructorParameters().add(fullyQualifiedInlineCastExprMetaModel.typePropertyMetaModel);
         bigDecimalLiteralExprMetaModel.getConstructorParameters().add(literalStringValueExprMetaModel.valuePropertyMetaModel);
         bigIntegerLiteralExprMetaModel.getConstructorParameters().add(literalStringValueExprMetaModel.valuePropertyMetaModel);
-        drlNameExprMetaModel.getConstructorParameters().add(nameExprMetaModel.namePropertyMetaModel);
-        drlNameExprMetaModel.getConstructorParameters().add(drlNameExprMetaModel.backReferencesCountPropertyMetaModel);
         drlxExpressionMetaModel.getConstructorParameters().add(drlxExpressionMetaModel.bindPropertyMetaModel);
         drlxExpressionMetaModel.getConstructorParameters().add(drlxExpressionMetaModel.exprPropertyMetaModel);
         halfBinaryExprMetaModel.getConstructorParameters().add(halfBinaryExprMetaModel.rightPropertyMetaModel);
@@ -398,7 +396,6 @@ public final class JavaParserMetaModel {
         nodeMetaModels.add(continueStmtMetaModel);
         nodeMetaModels.add(doStmtMetaModel);
         nodeMetaModels.add(doubleLiteralExprMetaModel);
-        nodeMetaModels.add(drlNameExprMetaModel);
         nodeMetaModels.add(drlxExpressionMetaModel);
         nodeMetaModels.add(emptyStmtMetaModel);
         nodeMetaModels.add(enclosedExprMetaModel);
@@ -948,8 +945,6 @@ public final class JavaParserMetaModel {
         fullyQualifiedInlineCastExprMetaModel.getDeclaredPropertyMetaModels().add(fullyQualifiedInlineCastExprMetaModel.expressionPropertyMetaModel);
         fullyQualifiedInlineCastExprMetaModel.typePropertyMetaModel = new PropertyMetaModel(fullyQualifiedInlineCastExprMetaModel, "type", com.github.javaparser.ast.type.Type.class, Optional.of(typeMetaModel), false, false, false, false);
         fullyQualifiedInlineCastExprMetaModel.getDeclaredPropertyMetaModels().add(fullyQualifiedInlineCastExprMetaModel.typePropertyMetaModel);
-        drlNameExprMetaModel.backReferencesCountPropertyMetaModel = new PropertyMetaModel(drlNameExprMetaModel, "backReferencesCount", int.class, Optional.empty(), false, false, false, false);
-        drlNameExprMetaModel.getDeclaredPropertyMetaModels().add(drlNameExprMetaModel.backReferencesCountPropertyMetaModel);
         drlxExpressionMetaModel.bindPropertyMetaModel = new PropertyMetaModel(drlxExpressionMetaModel, "bind", com.github.javaparser.ast.expr.SimpleName.class, Optional.of(simpleNameMetaModel), false, false, false, false);
         drlxExpressionMetaModel.getDeclaredPropertyMetaModels().add(drlxExpressionMetaModel.bindPropertyMetaModel);
         drlxExpressionMetaModel.exprPropertyMetaModel = new PropertyMetaModel(drlxExpressionMetaModel, "expr", com.github.javaparser.ast.expr.Expression.class, Optional.of(expressionMetaModel), false, false, false, false);
@@ -1416,9 +1411,6 @@ public final class JavaParserMetaModel {
 
     @Generated("com.github.javaparser.generator.metamodel.NodeMetaModelGenerator")
     public static final BigIntegerLiteralExprMetaModel bigIntegerLiteralExprMetaModel = new BigIntegerLiteralExprMetaModel(Optional.of(literalStringValueExprMetaModel));
-
-    @Generated("com.github.javaparser.generator.metamodel.NodeMetaModelGenerator")
-    public static final DrlNameExprMetaModel drlNameExprMetaModel = new DrlNameExprMetaModel(Optional.of(nameExprMetaModel));
 
     @Generated("com.github.javaparser.generator.metamodel.NodeMetaModelGenerator")
     public static final DrlxExpressionMetaModel drlxExpressionMetaModel = new DrlxExpressionMetaModel(Optional.of(expressionMetaModel));

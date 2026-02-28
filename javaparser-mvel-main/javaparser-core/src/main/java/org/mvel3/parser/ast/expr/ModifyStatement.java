@@ -13,6 +13,7 @@ import com.github.javaparser.ast.visitor.CloneVisitor;
 import com.github.javaparser.metamodel.ModifyStatementMetaModel;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
 import com.github.javaparser.ast.Generated;
+import com.github.javaparser.ast.Node;
 
 public final class ModifyStatement extends AbstractContextStatement<ModifyStatement, Expression> {
 

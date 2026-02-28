@@ -40,7 +40,6 @@ import java.util.stream.Collectors;
 import org.mvel3.parser.ast.expr.AbstractContextStatement;
 import org.mvel3.parser.ast.expr.BigDecimalLiteralExpr;
 import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
-import org.mvel3.parser.ast.expr.DrlNameExpr;
 import org.mvel3.parser.ast.expr.DrlxExpression;
 import org.mvel3.parser.ast.expr.FullyQualifiedInlineCastExpr;
 import org.mvel3.parser.ast.expr.HalfBinaryExpr;
@@ -1165,16 +1164,6 @@ public class PrettyPrintVisitor implements VoidVisitor<Void> {
         printComment(n.getComment(), arg);
         printer.print(n.getValue());
         printer.print("I");
-    }
-
-    @Override
-    public void visit(final DrlNameExpr n, final Void arg) {
-        printOrphanCommentsBeforeThisChildNode(n);
-        printComment(n.getComment(), arg);
-        for (int i = 0; i < n.getBackReferencesCount(); i++) {
-            printer.print("../");
-        }
-        n.getName().accept(this, arg);
     }
 
     @Override

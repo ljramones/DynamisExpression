@@ -39,6 +39,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import com.github.javaparser.metamodel.BigIntegerLiteralExprMetaModel;
 import com.github.javaparser.ast.Generated;
+import com.github.javaparser.ast.Node;
 
 public class BigIntegerLiteralExpr extends LiteralStringValueExpr {
 

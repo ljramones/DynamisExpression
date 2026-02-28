@@ -36,6 +36,7 @@ import java.util.stream.Stream;
 import static com.github.javaparser.utils.StringEscapeUtils.unescapeJavaTextBlock;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
+import com.github.javaparser.ast.Node;
 
 /**
  * <h1>A text block</h1>

@@ -31,6 +31,7 @@ import com.github.javaparser.metamodel.UnparsableStmtMetaModel;
 import java.util.Optional;
 import java.util.function.Consumer;
 import static com.github.javaparser.ast.Node.Parsedness.UNPARSABLE;
+import com.github.javaparser.ast.Node;
 
 /**
  * A statement that had parse errors.

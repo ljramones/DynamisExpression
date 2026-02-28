@@ -33,6 +33,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import static com.github.javaparser.utils.StringEscapeUtils.escapeJava;
 import static com.github.javaparser.utils.StringEscapeUtils.unescapeJava;
+import com.github.javaparser.ast.Node;
 
 /**
  * A literal string.

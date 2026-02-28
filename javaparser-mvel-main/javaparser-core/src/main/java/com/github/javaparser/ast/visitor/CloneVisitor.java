@@ -34,7 +34,6 @@ import java.util.Optional;
 import org.mvel3.parser.ast.expr.InlineCastExpr;
 import org.mvel3.parser.ast.expr.BigDecimalLiteralExpr;
 import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
-import org.mvel3.parser.ast.expr.DrlNameExpr;
 import org.mvel3.parser.ast.expr.DrlxExpression;
 import org.mvel3.parser.ast.expr.FullyQualifiedInlineCastExpr;
 import org.mvel3.parser.ast.expr.HalfBinaryExpr;
@@ -1356,17 +1355,6 @@ public class CloneVisitor implements GenericVisitor<Visitable, Object> {
     }
 
     @Override
-    public Visitable visit(final DrlNameExpr n, final Object arg) {
-        SimpleName name = cloneNode(n.getName(), arg);
-        Comment comment = cloneNode(n.getComment(), arg);
-        DrlNameExpr r = new DrlNameExpr(n.getTokenRange().orElse(null), name, n.getBackReferencesCount());
-        r.setComment(comment);
-        n.getOrphanComments().stream().map(Comment::clone).forEach(r::addOrphanComment);
-        copyData(n, r);
-        return r;
-    }
-
-    @Override
     public Visitable visit(final DrlxExpression n, final Object arg) {
         SimpleName bind = cloneNode(n.getBind(), arg);
         Expression expr = cloneNode(n.getExpr(), arg);
@@ -1539,8 +1527,10 @@ public class CloneVisitor implements GenericVisitor<Visitable, Object> {
 
     @Override
     public Visitable visit(final AbstractContextStatement<?, ?> n, final Object arg) {
-        if (n instanceof ModifyStatement m) return visit(m, arg);
-        if (n instanceof WithStatement w) return visit(w, arg);
+        if (n instanceof ModifyStatement m)
+            return visit(m, arg);
+        if (n instanceof WithStatement w)
+            return visit(w, arg);
         throw new IllegalStateException("Unknown AbstractContextStatement subtype: " + n.getClass().getName());
     }
 

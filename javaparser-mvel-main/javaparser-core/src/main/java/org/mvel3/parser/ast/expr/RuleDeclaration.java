@@ -116,6 +116,7 @@ public class RuleDeclaration extends TypeDeclaration<RuleDeclaration> {
         return Optional.of(this);
     }
 
+    @Override
     @Generated("com.github.javaparser.generator.core.node.TypeCastingGenerator")
     public void ifRuleDeclaration(Consumer<RuleDeclaration> action) {
         action.accept(this);

@@ -20,7 +20,6 @@ package org.mvel3.parser.ast.visitor;
 import com.github.javaparser.ast.visitor.GenericVisitor;
 import org.mvel3.parser.ast.expr.BigDecimalLiteralExpr;
 import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
-import org.mvel3.parser.ast.expr.DrlNameExpr;
 import org.mvel3.parser.ast.expr.DrlxExpression;
 import org.mvel3.parser.ast.expr.FullyQualifiedInlineCastExpr;
 import org.mvel3.parser.ast.expr.HalfBinaryExpr;
@@ -87,8 +86,6 @@ public interface DrlGenericVisitor<R, A> extends GenericVisitor<R, A> {
     R visit(BigIntegerLiteralExpr n, A arg);
 
     R visit(TemporalLiteralInfiniteChunkExpr n, A arg);
-
-    R visit(DrlNameExpr n, A arg);
 
     R visit(ModifyStatement n, A arg);
 

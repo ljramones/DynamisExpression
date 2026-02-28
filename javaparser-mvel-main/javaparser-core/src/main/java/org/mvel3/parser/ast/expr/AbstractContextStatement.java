@@ -17,8 +17,7 @@ import com.github.javaparser.metamodel.AbstractContextStatementMetaModel;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
 import com.github.javaparser.ast.Generated;
 
-public abstract sealed class AbstractContextStatement<T extends AbstractContextStatement, R extends Expression> extends Statement
-        permits ModifyStatement, WithStatement {
+public abstract sealed class AbstractContextStatement<T extends AbstractContextStatement, R extends Expression> extends Statement permits ModifyStatement, WithStatement {
 
     private Expression target;
 
