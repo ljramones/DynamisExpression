@@ -1759,13 +1759,6 @@ class MVELTranspilerTest implements TranspilerTest {
              result -> assertThat(allUsedBindings(result)).containsExactlyInAnyOrder("foo"));
     }
 
-    @Test @Disabled("Not yet supporing Method's with expressions, only variables")
-    void testUncompiledMethod() {
-        test("modify( (List)$toEdit.get(0) ){ setEnabled( true ) }",
-             "{ ((List) $toEdit.get(0)).setEnabled(true); }",
-             result -> assertThat(allUsedBindings(result)).isEmpty());
-    }
-
     @Test
     void testModifyWithMethod() {
         test(ctx -> ctx.addDeclaration("$p", Person.class),

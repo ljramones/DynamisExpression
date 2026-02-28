@@ -56,6 +56,10 @@ Expressions are compiled against one of three context types, which determines ho
 - **ANTLR4** — Parser generator for MVEL grammar
 - **ASM** — Bytecode manipulation for lambda extraction
 
+## Known Limitations
+
+- Expression targets in `modify` (e.g., `modify( (List)$toEdit.get(0) )`) are not supported — only simple variable targets are implemented. This is a DRL construct and not on the roadmap.
+
 ## Source Layout
 
 - `src/main/antlr4/` — ANTLR4 grammar files (Mvel3Lexer.g4, Mvel3Parser.g4, JavaLexer.g4, JavaParser.g4)
