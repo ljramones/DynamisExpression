@@ -8,7 +8,7 @@ MVEL3 is a complete rewrite of the MVEL expression language for Java. Unlike MVE
 
 ## Build Commands
 
-**Prerequisites:** JDK 17+, Maven 3.8.7+. You must first build and install the [javaparser-mvel](https://github.com/mvel/javaparser-mvel) fork locally (`mvn clean install` in that repo).
+**Prerequisites:** JDK 25+, Maven 3.8.7+. You must first build and install the [javaparser-mvel](https://github.com/mvel/javaparser-mvel) fork locally (`mvn clean install` in that repo).
 
 ```bash
 mvn clean install          # Full build with tests
@@ -26,7 +26,7 @@ The compilation pipeline flows through four stages:
 
 1. **Parse** — ANTLR4 grammar (`src/main/antlr4/.../Mvel3Parser.g4`, `Mvel3Lexer.g4`) parses MVEL expressions into a parse tree. Generated sources go to `target/generated-sources/antlr4/`.
 
-2. **Transpile** — `MVELTranspiler` converts MVEL parse trees into JavaParser AST nodes. `MVELToJavaRewriter` applies MVEL-specific AST transformations (e.g., null-safe access, coercion, operator overloading). Supporting rewriters: `CoerceRewriter`, `OverloadRewriter`.
+2. **Transpile** — `MVELTranspiler` converts MVEL parse trees into JavaParser AST nodes. `MVELToJavaRewriter` applies MVEL-specific AST transformations (e.g., null-safe access, coercion, operator overloading) using pattern matching switches (JDK 21+). Supporting rewriters: `CoerceRewriter`, `OverloadRewriter`.
 
 3. **Generate** — `CompilationUnitGenerator` wraps the transpiled AST into a full Java `CompilationUnit` implementing the `Evaluator` interface. The generated class contains an `eval()` method with the transpiled logic.
 

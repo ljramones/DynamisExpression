@@ -13,7 +13,7 @@ This workspace contains two interdependent Java projects that together implement
 
 ## Build Commands
 
-**Prerequisites:** JDK 17, Maven 3.8.7+
+**Prerequisites:** JDK 25, Maven 3.8.7+
 
 ### Build order (javaparser-mvel first, then mvel3)
 
@@ -105,9 +105,11 @@ Do not hand-edit methods with `@Generated` annotations.
 
 ## Key Constraints
 
-- **JDK 17 only** — javaparser-mvel enforcer allows 11–17, but MVEL3 requires 17 and tests fail on 21
-- **javaparser-mvel source level is Java 8** (for compatibility), but must build with JDK 17
-- **mvel-main source level is Java 17**
+- **JDK 25 baseline** — Both modules target JDK 25. DynamisExpression is an internal dependency, not published for external consumption, so there is no need for older JVM compatibility. This decision is final and should not be relitigated.
+- **javaparser-mvel source level is Java 17** — Upgraded from 8, enabling sealed classes and other JDK 17+ features
+- **mvel-main source level is Java 25** — Upgraded from 17, enabling pattern matching switches and other JDK 21+ features
+- **Sealed AST hierarchies** — Three MVEL AST hierarchies are sealed: `TemporalChunkExpr`, `AbstractContextStatement`, `RuleItem`. All permitted subtypes are `final`.
+- **Pattern matching** — `MVELToJavaRewriter.rewriteNode()` uses a pattern matching switch instead of string-based class-name dispatch. `AstUtils` methods use switch expressions with pattern matching.
 - Tests use JUnit 5 (Jupiter) + AssertJ. mvel-main Surefire runs alphabetically with `mvel3.compiler.lambda.resetOnTestStartup=true`
 - Checkstyle config for javaparser-mvel: `dev-files/JavaParser-CheckStyle.xml`
 
@@ -115,4 +117,4 @@ Do not hand-edit methods with `@Generated` annotations.
 
 - Alpha quality: 11 disabled tests (power operator, unsigned left shift, single-quote strings), 20+ TODOs in critical paths
 - Thread safety not addressed in `ClassManager`, `LambdaRegistry`, `MVEL.get()`
-- `DrlCloneVisitor` mostly stubbed (returns null for most MVEL nodes)
+- `DrlCloneVisitor` mostly stubbed (returns null for most MVEL nodes). DRL coupling was removed; stubs are documented as out of scope.

@@ -31,7 +31,7 @@ A fork of [JavaParser](https://github.com/javaparser/javaparser) that adds custo
 ./mvnw -pl javaparser-core-testing test -Dtest=ClassName#methodName
 ```
 
-**JDK requirement:** JDK 17 only. The enforcer allows 11–17, but MVEL3 requires 17, and tests fail on 21.
+**JDK requirement:** JDK 17+. The enforcer requires JDK 17 or later. Source level is 17.
 
 ## Code Generation Pipeline
 
@@ -84,4 +84,5 @@ Two-tier visitor integration:
 - Checkstyle config: `dev-files/JavaParser-CheckStyle.xml`
 - The JavaCC grammar file is at `javaparser-core/src/main/javacc/java.jj` (~5800 lines). MVEL grammar rules are **not** in this file — MVEL nodes are constructed programmatically or via external tooling (`drlx-parser` project).
 - Tests use JUnit 5 (core-testing) and JBehave (core-testing-bdd). BDD stories are in `src/test/resources/**/*.story`.
-- Java source level is 8 (for compatibility), but build requires JDK 17.
+- Java source level is 17. Three MVEL AST hierarchies (`TemporalChunkExpr`, `AbstractContextStatement`, `RuleItem`) are sealed with final subtypes.
+- `TemporalLiteralArguments` is a record (not an AST node, zero callers).
