@@ -115,6 +115,9 @@ Do not hand-edit methods with `@Generated` annotations.
 
 ## Known Issues
 
-- Alpha quality: 11 disabled tests (power operator, unsigned left shift, single-quote strings), 20+ TODOs in critical paths
+- Alpha quality: 8 disabled tests in mvel-main, 24 disabled tests in javaparser-mvel-main (upstream JavaParser issues, out of scope), 20+ TODOs in critical paths
+- **mvel-main disabled tests (8):** unsigned left shift `<<<` (1, needs design decision), single-quote strings (1), DRL custom operators (3, deferred — Drools coupling removed), method expressions (1), text block type resolution (1), HalfBinaryExpr rewriting (1)
+- **javaparser-mvel-main disabled tests (24):** upstream JavaParser test issues, out of scope for DynamisExpression
 - Thread safety not addressed in `ClassManager`, `LambdaRegistry`, `MVEL.get()`
 - `DrlCloneVisitor` mostly stubbed (returns null for most MVEL nodes). DRL coupling was removed; stubs are documented as out of scope.
+- **javaparser dependency version:** mvel-main depends on `3.25.5-mvel3-SNAPSHOT` from javaparser-mvel-main. Both must use matching versions.

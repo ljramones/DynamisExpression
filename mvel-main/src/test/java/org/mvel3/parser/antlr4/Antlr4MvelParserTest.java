@@ -19,7 +19,6 @@ package org.mvel3.parser.antlr4;
 import java.util.concurrent.TimeUnit;
 
 import org.antlr.v4.runtime.tree.ParseTree;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mvel3.parser.ast.expr.TemporalLiteralChunkExpr;
 import org.mvel3.parser.ast.expr.TemporalLiteralExpr;
@@ -135,27 +134,6 @@ class Antlr4MvelParserTest {
     @Test
     void testParseNullSafeFieldAccessExpr() {
         String expr = "person!.name == \"Mark\"";
-        assertParsedExpressionRoundTrip(expr);
-    }
-
-    @Disabled("Custom Operator : TBD")
-    @Test
-    void testDotFreeExpr() {
-        String expr = "this after $a";
-        assertParsedExpressionRoundTrip(expr);
-    }
-
-    @Disabled("Custom Operator : TBD")
-    @Test
-    void testDotFreeEnclosed() {
-        String expr = "(this after $a)";
-        assertParsedExpressionRoundTrip(expr);
-    }
-
-    @Disabled("Custom Operator : TBD")
-    @Test
-    void testDotFreeEnclosedWithNameExpr() {
-        String expr = "(something after $a)";
         assertParsedExpressionRoundTrip(expr);
     }
 
