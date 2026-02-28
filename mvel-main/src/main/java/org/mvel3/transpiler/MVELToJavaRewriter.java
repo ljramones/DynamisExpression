@@ -61,8 +61,10 @@ import org.mvel3.parser.ast.expr.TemporalChunkExpr;
 import org.mvel3.parser.ast.expr.TemporalLiteralChunkExpr;
 import org.mvel3.parser.ast.expr.TemporalLiteralExpr;
 import org.mvel3.parser.ast.expr.MapCreationLiteralExpressionKeyValuePair;
+import org.mvel3.parser.ast.expr.ModifyStatement;
 import org.mvel3.parser.ast.expr.NullSafeFieldAccessExpr;
 import org.mvel3.parser.ast.expr.NullSafeMethodCallExpr;
+import org.mvel3.parser.ast.expr.WithStatement;
 import org.mvel3.transpiler.context.Declaration;
 import org.mvel3.transpiler.context.TranspilerContext;
 
@@ -172,9 +174,8 @@ public class MVELToJavaRewriter {
     private void rewriteNode(Node node) {
         BinaryExpr binExpr = null;
 
-        switch (node.getClass().getSimpleName())  {
-            case "BigDecimalLiteralExpr" : {
-                BigDecimalLiteralExpr n = (BigDecimalLiteralExpr) node;
+        switch (node)  {
+            case BigDecimalLiteralExpr n -> {
                 String value = n.getValue();
                 NodeList<Expression> arg = new NodeList<>();
                 if (value.indexOf('.') < 0) {
@@ -189,20 +190,16 @@ public class MVELToJavaRewriter {
                                                       new ClassOrInterfaceType("BigDecimal"), null, arg, null);
                     node.replace(oce);
                 }
-                break;
             }
-            case "BigIntegerLiteralExpr" : {
-                BigIntegerLiteralExpr n = (BigIntegerLiteralExpr) node;
+            case BigIntegerLiteralExpr n -> {
                 NodeList<Expression> arg = new NodeList<>();
                 String value = n.getValue();
                 arg.add(new IntegerLiteralExpr(n.getTokenRange().get(),  value));
                 Node mce = new MethodCallExpr(n.getTokenRange().get(), new NameExpr("BigInteger"),  null,
                                               new SimpleName(n.getTokenRange().get(),"valueOf"), arg);
                 node.replace(mce);
-                break;
             }
-            case "TemporalLiteralExpr" : {
-                TemporalLiteralExpr temporalExpr = (TemporalLiteralExpr) node;
+            case TemporalLiteralExpr temporalExpr -> {
                 NodeList<TemporalChunkExpr> chunks = temporalExpr.getChunks();
                 Expression durationExpr = null;
 
@@ -251,10 +248,8 @@ public class MVELToJavaRewriter {
                 if (durationExpr != null) {
                     node.replace(durationExpr);
                 }
-                break;
             }
-            case "ListCreationLiteralExpression" : {
-                ListCreationLiteralExpression listExpr = (ListCreationLiteralExpression) node;
+            case ListCreationLiteralExpression listExpr -> {
                 NodeList<Expression> elements = listExpr.getExpressions();
 
                 // Check if empty list
@@ -278,10 +273,8 @@ public class MVELToJavaRewriter {
                     // Extract the actual values from ListCreationLiteralExpressionElement wrappers
                     NodeList<Expression> actualValues = new NodeList<>();
                     for (Expression expr : elements) {
-                        if (expr instanceof ListCreationLiteralExpressionElement) {
+                        if (expr instanceof ListCreationLiteralExpressionElement element) {
                             // Unwrap the element to get the actual value
-                            ListCreationLiteralExpressionElement element =
-                                (ListCreationLiteralExpressionElement) expr;
                             actualValues.add(element.getValue());
                         } else {
                             // Shouldn't happen, but handle gracefully
@@ -305,10 +298,8 @@ public class MVELToJavaRewriter {
                     );
                     node.replace(asList);
                 }
-                break;
             }
-            case "MapCreationLiteralExpression" : {
-                MapCreationLiteralExpression mapExpr = (MapCreationLiteralExpression) node;
+            case MapCreationLiteralExpression mapExpr -> {
                 NodeList<Expression> entries = mapExpr.getExpressions();
 
                 // Check if empty map
@@ -332,10 +323,8 @@ public class MVELToJavaRewriter {
                     // Extract keys and values from MapCreationLiteralExpressionKeyValuePair wrappers
                     NodeList<Expression> keysAndValues = new NodeList<>();
                     for (Expression expr : entries) {
-                        if (expr instanceof MapCreationLiteralExpressionKeyValuePair) {
+                        if (expr instanceof MapCreationLiteralExpressionKeyValuePair entry) {
                             // Unwrap the entry to get key and value
-                            MapCreationLiteralExpressionKeyValuePair entry =
-                                (MapCreationLiteralExpressionKeyValuePair) expr;
                             keysAndValues.add(entry.getKey());
                             keysAndValues.add(entry.getValue());
                         } else {
@@ -360,10 +349,8 @@ public class MVELToJavaRewriter {
                     );
                     node.replace(mapOf);
                 }
-                break;
             }
-            case "NullSafeFieldAccessExpr" : {
-                NullSafeFieldAccessExpr nullSafeExpr = (NullSafeFieldAccessExpr) node;
+            case NullSafeFieldAccessExpr nullSafeExpr -> {
                 Expression scope = nullSafeExpr.getScope();
                 String fieldName = nullSafeExpr.getName().asString();
 
@@ -377,10 +364,8 @@ public class MVELToJavaRewriter {
                 );
 
                 node.replace(replacement);
-                break;
             }
-            case "NullSafeMethodCallExpr" : {
-                NullSafeMethodCallExpr nullSafeExpr = (NullSafeMethodCallExpr) node;
+            case NullSafeMethodCallExpr nullSafeExpr -> {
                 Expression scope = nullSafeExpr.getScope().orElse(null);
                 String methodName = nullSafeExpr.getName().asString();
                 NodeList<Expression> arguments = nullSafeExpr.getArguments();
@@ -423,34 +408,16 @@ public class MVELToJavaRewriter {
                 } else {
                     throw new IllegalStateException("NullSafeMethodCallExpr should always have a scope");
                 }
-                break;
             }
-            case "ModifyStatement" :
-                isModifyWithContext = true;
-            case "WithStatement" : {
-                AbstractContextStatement modifyStmt = (AbstractContextStatement) node;
-                NameExpr                 nameExpr   = (NameExpr) modifyStmt.getTarget();
-                withContextName = nameExpr;
-                withContextType = nameExpr.calculateResolvedType();
-
-                // create a block to hold the rewritten statements to repalce the modify block
-                BlockStmt blockStmt = new BlockStmt();
-                modifyStmt.replace(blockStmt);
-                modifyStmt.getTarget().setParentNode(blockStmt);
-                modifyStmt.getExpressions().forEach(n -> blockStmt.addStatement((Statement) n));
-                blockStmt.getStatements().forEach( n -> rewriteNode(n));
-                if (isModifyWithContext) {
-                    blockStmt.addStatement(new MethodCallExpr("update", new NameExpr(withContextName.getNameAsString())));
-                }
-
-                withContextName = null;
-                withContextType = null;
-                break;
+            case ModifyStatement modifyStmt -> {
+                rewriteContextStatement(modifyStmt, true);
             }
-            case "UnaryExpr":
+            case WithStatement withStmt -> {
+                rewriteContextStatement(withStmt, false);
+            }
+            case UnaryExpr unaryExpr -> {
                 // JavaParser's extension to detect BigDecimal and BigNumber does not pass  the negative prefix on the number.
                 // This detects this and adds it back in.
-                UnaryExpr unaryExpr = (UnaryExpr) node;
                 if (unaryExpr.getOperator() == UnaryExpr.Operator.MINUS ||
                     unaryExpr.getOperator() == UnaryExpr.Operator.PLUS) {
                     if (unaryExpr.getExpression() instanceof BigDecimalLiteralExpr ||
@@ -465,20 +432,15 @@ public class MVELToJavaRewriter {
                         rewriteNode(unaryExpr.getExpression());
                         Expression     expr = unaryExpr.getExpression();
                         MethodCallExpr not  = new MethodCallExpr(expr, "not");
-                        Node           p    = unaryExpr.getParentNode().get();
                         unaryExpr.replace(not);
                     } else if (unaryExpr.getExpression() instanceof BigDecimalLiteralExpr) {
                         throw new UnsupportedOperationException("BigDecimals cannot use bitwise compliment operators");
                     }
                 }
-                break;
-            case "DrlNameExpr":
-            case "NameExpr": {
-                NameExpr nameExpr = (NameExpr) node;
+            }
+            case NameExpr nameExpr -> {
                 String   name     = nameExpr.getNameAsString();
 
-                NameExpr scope;
-                ResolvedType scopeType;
                 if (context.getEvaluatorInfo().withDeclaration().type().isVoid()) {
                     // root not set, cannot rewrite
                     break;
@@ -496,22 +458,21 @@ public class MVELToJavaRewriter {
 
                 node = rewriteNameToScope(new NameExpr(context.getEvaluatorInfo().withDeclaration().name()), rootObjectType,
                                           nameExpr, true);
-                break;
             }
-            case "FieldAccessExpr":
-                node = maybeRewriteToGetter((FieldAccessExpr) node);
-                break;
-            case "InlineCastExpr":
-                processInlineCastExpr((InlineCastExpr) node);
-                break;
-            case "AssignExpr":
-                processAssignExpr((AssignExpr) node);
-                break;
-            case "ArrayAccessExpr":
-                rewriteArrayAccessExpr((ArrayAccessExpr) node);
-                break;
-            case "BinaryExpr":
-                binExpr = (BinaryExpr) node;
+            case FieldAccessExpr fae -> {
+                node = maybeRewriteToGetter(fae);
+            }
+            case InlineCastExpr ice -> {
+                processInlineCastExpr(ice);
+            }
+            case AssignExpr ae -> {
+                processAssignExpr(ae);
+            }
+            case ArrayAccessExpr aae -> {
+                rewriteArrayAccessExpr(aae);
+            }
+            case BinaryExpr be -> {
+                binExpr = be;
                 if (rootBinaryExpr == null) {
                     rootBinaryExpr = binExpr;
                 }
@@ -527,45 +488,41 @@ public class MVELToJavaRewriter {
                 if (lastBinaryExpr == null) {
                     processBinaryExpr(binExpr, binExpr.getRight());
                 }
-
-                break;
-            case "ArrayCreationExpr":
-                ArrayCreationExpr arrayCreationExpr = (ArrayCreationExpr) node;
+            }
+            case ArrayCreationExpr arrayCreationExpr -> {
                 if (arrayCreationExpr.getInitializer().isPresent()) {
-                    ArrayInitializerExpr initExpr = ((ArrayCreationExpr) node).getInitializer().get();
+                    ArrayInitializerExpr initExpr = arrayCreationExpr.getInitializer().get();
                     rewriteNode(initExpr);
                     ResolvedType resolvedType = arrayCreationExpr.getElementType().resolve();
                     rewriteArrayInitializer(resolvedType, initExpr);
                 }
-                break;
-            case "MethodCallExpr":
-                MethodCallExpr methodCall = (MethodCallExpr) node;
-
-                MethodCallExpr methodCallExpr = (MethodCallExpr) node;
-                methodCallExpr.getArguments().stream().forEach( a -> rewriteNode(a));
+            }
+            case MethodCallExpr methodCall -> {
+                methodCall.getArguments().stream().forEach( a -> rewriteNode(a));
 
                 // This attempts to only rewrite methods that are not called against a variable
-                if (!methodCallExpr.hasScope() && !methodCallExpr.getNameAsString().contains(".")) {
+                if (!methodCall.hasScope() && !methodCall.getNameAsString().contains(".")) {
                     if (withContextName == null) {
-                        node       = rewriteMethodToContextObject(methodCallExpr);
-                        methodCall = (MethodCallExpr) node;
+                        node = rewriteMethodToContextObject(methodCall);
                     } else {
-                        methodCall.setScope(new NameExpr(methodCallExpr.getTokenRange().get(),
-                                                         new SimpleName(methodCallExpr.getTokenRange().get(),
+                        methodCall.setScope(new NameExpr(methodCall.getTokenRange().get(),
+                                                         new SimpleName(methodCall.getTokenRange().get(),
                                                                         withContextName.getNameAsString())));
                     }
                 }
 
-                if (methodCall.getScope().isPresent()) {
-                    Expression scope = methodCall.getScope().get();
+                MethodCallExpr currentMethodCall = (node instanceof MethodCallExpr mce) ? mce : methodCall;
+
+                if (currentMethodCall.getScope().isPresent()) {
+                    Expression scope = currentMethodCall.getScope().get();
                     if (withContextName != null &&
                         scope.isNameExpr() ) {
 
                         scope = rewriteNameToScope(new NameExpr(withContextName.getNameAsString()), withContextType,
                                                    scope.asNameExpr(), true);
                     } else {
-                        rewriteNode(methodCall.getScope().get());
-                        scope = methodCall.getScope().get();
+                        rewriteNode(currentMethodCall.getScope().get());
+                        scope = currentMethodCall.getScope().get();
                     }
 
                     ResolvedType scopeType = scope.calculateResolvedType();
@@ -574,17 +531,16 @@ public class MVELToJavaRewriter {
                         // scope is a primitive, so need to replace with Number object wrapper for it to work.
                         MethodCallExpr wrapperMethodCall = new MethodCallExpr(new NameExpr(scopeType.asPrimitive().getBoxTypeClass().getSimpleName()),
                                                                               "valueOf");
-                        methodCall.removeScope();
-                        methodCall.setScope(wrapperMethodCall);
+                        currentMethodCall.removeScope();
+                        currentMethodCall.setScope(wrapperMethodCall);
 
                         wrapperMethodCall.addArgument(scope);
                     }
                 }
 
-                maybeCoerceArguments(methodCall);
-                break;
-            case "VariableDeclarationExpr":
-                VariableDeclarationExpr declrExpr = (VariableDeclarationExpr) node;
+                maybeCoerceArguments(currentMethodCall);
+            }
+            case VariableDeclarationExpr declrExpr -> {
                 VariableDeclarator declr = declrExpr.getVariable(0);
 
                 declaredVars.add(declr.getNameAsString());
@@ -607,11 +563,10 @@ public class MVELToJavaRewriter {
                         }
                     }
                 }
-
-                break;
-            default:
+            }
+            default -> {
                 rewriteChildren(node);
-                break;
+            }
         }
 
         if ( binExpr != null) {
@@ -623,6 +578,26 @@ public class MVELToJavaRewriter {
             rootBinaryExpr = null;
         }
 
+    }
+
+    private void rewriteContextStatement(AbstractContextStatement<?, ?> stmt, boolean isModify) {
+        isModifyWithContext = isModify;
+        NameExpr nameExpr = (NameExpr) stmt.getTarget();
+        withContextName = nameExpr;
+        withContextType = nameExpr.calculateResolvedType();
+
+        // create a block to hold the rewritten statements to replace the modify block
+        BlockStmt blockStmt = new BlockStmt();
+        stmt.replace(blockStmt);
+        stmt.getTarget().setParentNode(blockStmt);
+        stmt.getExpressions().forEach(n -> blockStmt.addStatement((Statement) n));
+        blockStmt.getStatements().forEach(n -> rewriteNode(n));
+        if (isModifyWithContext) {
+            blockStmt.addStatement(new MethodCallExpr("update", new NameExpr(withContextName.getNameAsString())));
+        }
+
+        withContextName = null;
+        withContextType = null;
     }
 
     private void rewriteArrayInitializer(ResolvedType elementType, ArrayInitializerExpr initExpr) {
@@ -910,115 +885,114 @@ public class MVELToJavaRewriter {
 
         Expression target = assignExpr.getTarget();
 
-        if (target instanceof ArrayAccessExpr) {
-            ArrayAccessExpr arrayAccessor = (ArrayAccessExpr) target;
-            rewriteNode(arrayAccessor.getName());
+        switch (target) {
+            case ArrayAccessExpr arrayAccessor -> {
+                rewriteNode(arrayAccessor.getName());
 
-            ResolvedType array = arrayAccessor.getName().calculateResolvedType();
+                ResolvedType array = arrayAccessor.getName().calculateResolvedType();
 
+                boolean isMap = isAssignableBy(mapType, array);
+                boolean isList = isAssignableBy(listType, array);
+                MethodUsage putSet = getPutSet(isMap, isList);
 
-            boolean isMap = isAssignableBy(mapType, array);
-            boolean isList = isAssignableBy(listType, array);
-            MethodUsage putSet = getPutSet(isMap, isList);
+                Expression value = assignExpr.getValue();
+                int paramIndex = 1;
 
-            Expression value = assignExpr.getValue();
-            int paramIndex = 1;
-
-            Supplier<MethodCallExpr>  methodCallSupplier = () -> {
-                if (array.isArray()) {
-                    return null;
-                }
-
-                MethodUsage m;
-                if (isMap) {
-                    m = mapGetMethod;
-                } else {
-                    m = listGetMethod;
-                }
-
-                return new MethodCallExpr(m.getName(), arrayAccessor.getIndex());
-            };
-
-            rewriteAssign(putSet, methodCallSupplier,
-                          value, paramIndex, arrayAccessor.getName(), assignExpr, target,
-                          (v) -> new Expression[] {arrayAccessor.getIndex(), v});
-
-        } else if (target instanceof  FieldAccessExpr) {
-            FieldAccessExpr fieldAccessor = (FieldAccessExpr) target;
-            rewriteNode(fieldAccessor.getScope());
-
-            Expression value = assignExpr.getValue();
-
-            MethodUsage setter = getMethod("set", fieldAccessor, 1);
-            int paramIndex = 0;
-
-            Supplier<MethodCallExpr>  methodCallSupplier = () -> {
-                MethodUsage methodUsage = getMethod("get", fieldAccessor, 0);
-                return methodUsage != null ? new MethodCallExpr(methodUsage.getName()) : null;
-            };
-
-            rewriteAssign(setter, methodCallSupplier, value, paramIndex, ((FieldAccessExpr) target).getScope(), assignExpr, target,
-                          (v) -> new Expression[] {v});
-        } else if (target instanceof NameExpr){
-            NameExpr nameExpr = (NameExpr) target;
-
-            // If this updates a var that exists in the context, make sure the result is assigned back there too.
-            if ( context.getInputs().contains(nameExpr.getNameAsString())) {
-                Declaration<?> ctxDeclr = context.getEvaluatorInfo().contextDeclaration();
-                Class ctxClass = ctxDeclr.type().getClazz();
-                if (ctxDeclr.type().getClazz().isAssignableFrom(Map.class)) {
-
-                    if (assignExpr.getParentNode().get() instanceof ExpressionStmt) {
-                        // This is its own statement, so no need to wrap the assignment and return the new value
-                        // a  = 5 becomes context.put("a", a = 5);
-                        MethodCallExpr putMethod = new MethodCallExpr(new NameExpr(new SimpleName(ctxDeclr.name())), "put");
-                        assignExpr.replace(putMethod);
-                        putMethod.setArguments(NodeList.nodeList(new StringLiteralExpr(nameExpr.getNameAsString()),
-                                                                 assignExpr));
-                    } else {
-                        // This assigment is part of some expression, so wrap the asssignment and return the new value
-                        // return a = 5 becomes return org.mvel3.MVEL.putMap(context, "a", a = 5);
-                        Expression scope = handleParserResult(context.getParser().parseExpression(MVEL.class.getCanonicalName()));
-
-                        MethodCallExpr putMethod = new MethodCallExpr( scope,"putMap");
-                        assignExpr.replace(putMethod);
-                        putMethod.addArgument(new NameExpr(context.getEvaluatorInfo().contextDeclaration().name()));
-                        putMethod.addArgument(new StringLiteralExpr(nameExpr.getNameAsString()));
-                        putMethod.addArgument(assignExpr);
+                Supplier<MethodCallExpr> methodCallSupplier = () -> {
+                    if (array.isArray()) {
+                        return null;
                     }
-                } else if (ctxClass.isAssignableFrom(List.class)) {
-                    if (assignExpr.getParentNode().get() instanceof ExpressionStmt) {
-                        // This is its own statement, so no need to wrap the assignment and return the new value
-                        // a = 5 becomes context.set(i, a = 5);
-                        MethodCallExpr setMethod = new MethodCallExpr(new NameExpr(new SimpleName(ctxDeclr.name())), "set");
-                        assignExpr.replace(setMethod);
-                        setMethod.setArguments(NodeList.nodeList(new IntegerLiteralExpr(context.getEvaluatorInfo().indexOf(nameExpr.getNameAsString())),
-                                                                 assignExpr));
-                    } else {
-                        // This assigment is part of some expression, so wwrap the asssignment and return the new value
-                        // return a = 5 becomes return org.mvel3.MVEL.setList(context, 3, a = 5);
-                        Expression scope = handleParserResult(context.getParser().parseExpression(MVEL.class.getCanonicalName()));
 
-                        MethodCallExpr setMethod = new MethodCallExpr( scope,"setList");
+                    MethodUsage m;
+                    if (isMap) {
+                        m = mapGetMethod;
+                    } else {
+                        m = listGetMethod;
+                    }
+
+                    return new MethodCallExpr(m.getName(), arrayAccessor.getIndex());
+                };
+
+                rewriteAssign(putSet, methodCallSupplier,
+                              value, paramIndex, arrayAccessor.getName(), assignExpr, target,
+                              (v) -> new Expression[]{arrayAccessor.getIndex(), v});
+            }
+            case FieldAccessExpr fieldAccessor -> {
+                rewriteNode(fieldAccessor.getScope());
+
+                Expression value = assignExpr.getValue();
+
+                MethodUsage setter = getMethod("set", fieldAccessor, 1);
+                int paramIndex = 0;
+
+                Supplier<MethodCallExpr> methodCallSupplier = () -> {
+                    MethodUsage methodUsage = getMethod("get", fieldAccessor, 0);
+                    return methodUsage != null ? new MethodCallExpr(methodUsage.getName()) : null;
+                };
+
+                rewriteAssign(setter, methodCallSupplier, value, paramIndex, fieldAccessor.getScope(), assignExpr, target,
+                              (v) -> new Expression[]{v});
+            }
+            case NameExpr nameExpr -> {
+                // If this updates a var that exists in the context, make sure the result is assigned back there too.
+                if (context.getInputs().contains(nameExpr.getNameAsString())) {
+                    Declaration<?> ctxDeclr = context.getEvaluatorInfo().contextDeclaration();
+                    Class ctxClass = ctxDeclr.type().getClazz();
+                    if (ctxDeclr.type().getClazz().isAssignableFrom(Map.class)) {
+
+                        if (assignExpr.getParentNode().get() instanceof ExpressionStmt) {
+                            // This is its own statement, so no need to wrap the assignment and return the new value
+                            // a  = 5 becomes context.put("a", a = 5);
+                            MethodCallExpr putMethod = new MethodCallExpr(new NameExpr(new SimpleName(ctxDeclr.name())), "put");
+                            assignExpr.replace(putMethod);
+                            putMethod.setArguments(NodeList.nodeList(new StringLiteralExpr(nameExpr.getNameAsString()),
+                                                                     assignExpr));
+                        } else {
+                            // This assigment is part of some expression, so wrap the asssignment and return the new value
+                            // return a = 5 becomes return org.mvel3.MVEL.putMap(context, "a", a = 5);
+                            Expression scope = handleParserResult(context.getParser().parseExpression(MVEL.class.getCanonicalName()));
+
+                            MethodCallExpr putMethod = new MethodCallExpr(scope, "putMap");
+                            assignExpr.replace(putMethod);
+                            putMethod.addArgument(new NameExpr(context.getEvaluatorInfo().contextDeclaration().name()));
+                            putMethod.addArgument(new StringLiteralExpr(nameExpr.getNameAsString()));
+                            putMethod.addArgument(assignExpr);
+                        }
+                    } else if (ctxClass.isAssignableFrom(List.class)) {
+                        if (assignExpr.getParentNode().get() instanceof ExpressionStmt) {
+                            // This is its own statement, so no need to wrap the assignment and return the new value
+                            // a = 5 becomes context.set(i, a = 5);
+                            MethodCallExpr setMethod = new MethodCallExpr(new NameExpr(new SimpleName(ctxDeclr.name())), "set");
+                            assignExpr.replace(setMethod);
+                            setMethod.setArguments(NodeList.nodeList(new IntegerLiteralExpr(context.getEvaluatorInfo().indexOf(nameExpr.getNameAsString())),
+                                                                     assignExpr));
+                        } else {
+                            // This assigment is part of some expression, so wwrap the asssignment and return the new value
+                            // return a = 5 becomes return org.mvel3.MVEL.setList(context, 3, a = 5);
+                            Expression scope = handleParserResult(context.getParser().parseExpression(MVEL.class.getCanonicalName()));
+
+                            MethodCallExpr setMethod = new MethodCallExpr(scope, "setList");
+                            assignExpr.replace(setMethod);
+                            setMethod.addArgument(MVELBuilder.CONTEXT_NAME);
+                            setMethod.addArgument(new IntegerLiteralExpr(context.getEvaluatorInfo().indexOf(nameExpr.getNameAsString())));
+                            setMethod.addArgument(assignExpr);
+                        }
+                    } else {
+                        // pojo
+                        // @TOOD I need to call the generated method below. But ideally only if it's part of some parent.
+                        addSetterMethod(nameExpr);
+                        MethodCallExpr setMethod = new MethodCallExpr(MVELBuilder.CONTEXT_NAME + nameExpr.getNameAsString());
                         assignExpr.replace(setMethod);
-                        setMethod.addArgument(MVELBuilder.CONTEXT_NAME);
-                        setMethod.addArgument(new IntegerLiteralExpr(context.getEvaluatorInfo().indexOf(nameExpr.getNameAsString())));
+                        setMethod.addArgument(new NameExpr(ctxDeclr.name()));
                         setMethod.addArgument(assignExpr);
                     }
-                } else {
-                    // pojo
-                    // @TOOD I need to call the generated method below. But ideally only if it's part of some parent.
-                    addSetterMethod(nameExpr);
-                    MethodCallExpr setMethod = new MethodCallExpr(MVELBuilder.CONTEXT_NAME + nameExpr.getNameAsString());
-                    assignExpr.replace(setMethod);
-                    setMethod.addArgument(new NameExpr(ctxDeclr.name()));
-                    setMethod.addArgument(assignExpr);
                 }
-            }
 
-            Expression value = assignExpr.getValue();
-            rewriteAssign(null, () -> null,value, -1, null, assignExpr, target,
-                          (v) -> new Expression[] {v});
+                Expression value = assignExpr.getValue();
+                rewriteAssign(null, () -> null, value, -1, null, assignExpr, target,
+                              (v) -> new Expression[]{v});
+            }
+            default -> {}
         }
     }
 
@@ -1362,8 +1336,8 @@ public class MVELToJavaRewriter {
     private Expression buildFieldAccessExpression(Expression safeScope, String fieldName, Node originalNode) {
         FieldAccessExpr fieldAccess = new FieldAccessExpr(safeScope, fieldName);
         Node maybeGetter = maybeRewriteToGetterWithParentBlockStmt(fieldAccess, originalNode);
-        if (maybeGetter instanceof Expression) {
-            return (Expression) maybeGetter;
+        if (maybeGetter instanceof Expression expr) {
+            return expr;
         }
         return fieldAccess;
     }
@@ -1373,8 +1347,7 @@ public class MVELToJavaRewriter {
     }
 
     private Expression wrapNullSafeInternal(Expression currentScope, Function<Expression, Expression> onNotNull) {
-        if (isNullSafeConditional(currentScope)) {
-            ConditionalExpr conditionalExpr = (ConditionalExpr) currentScope;
+        if (currentScope instanceof ConditionalExpr conditionalExpr && isNullSafeConditional(currentScope)) {
             Expression wrappedThen = wrapNullSafeInternal(conditionalExpr.getThenExpr().clone(), onNotNull);
             if (wrappedThen instanceof ConditionalExpr) {
                 wrappedThen = new EnclosedExpr(wrappedThen);
@@ -1401,17 +1374,15 @@ public class MVELToJavaRewriter {
     }
 
     private boolean isNullSafeConditional(Expression expression) {
-        if (!(expression instanceof ConditionalExpr)) {
+        if (!(expression instanceof ConditionalExpr conditionalExpr)) {
             return false;
         }
-        ConditionalExpr conditionalExpr = (ConditionalExpr) expression;
         if (!isNullLiteralExpression(conditionalExpr.getElseExpr())) {
             return false;
         }
-        if (!(conditionalExpr.getCondition() instanceof BinaryExpr)) {
+        if (!(conditionalExpr.getCondition() instanceof BinaryExpr condition)) {
             return false;
         }
-        BinaryExpr condition = (BinaryExpr) conditionalExpr.getCondition();
         if (condition.getOperator() != BinaryExpr.Operator.NOT_EQUALS) {
             return false;
         }
@@ -1425,14 +1396,14 @@ public class MVELToJavaRewriter {
         if (expression.isNullLiteralExpr()) {
             return true;
         }
-        if (expression instanceof EnclosedExpr) {
-            return isNullLiteralExpression(((EnclosedExpr) expression).getInner());
+        if (expression instanceof EnclosedExpr enclosed) {
+            return isNullLiteralExpression(enclosed.getInner());
         }
         return false;
     }
 
     public Node rewriteArrayAccessExpr(ArrayAccessExpr n) {
-        if (n.getParentNode().get() instanceof  AssignExpr && ((AssignExpr)n.getParentNode().get()).getTarget() == n) {
+        if (n.getParentNode().get() instanceof AssignExpr assignExpr && assignExpr.getTarget() == n) {
             // do not rewrite the setter part of the ArrayAccessExpr, but getting is fine.
             return n;
         }
