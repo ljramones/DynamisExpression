@@ -81,7 +81,7 @@ class ReflectionInterfaceDeclarationTest extends AbstractSymbolResolutionTest {
         ResolvedInterfaceDeclaration list = new ReflectionInterfaceDeclaration(List.class, typeResolver);
         Map<String, ResolvedReferenceType> ancestors = new HashMap<>();
         list.getAllAncestors().forEach(a -> ancestors.put(a.getQualifiedName(), a));
-        assertEquals(2, ancestors.size());
+        assertTrue(ancestors.size() >= 2);
 
         // Since List is an interface, Object cannot be an ancestor of List
         ResolvedTypeVariable typeVariable = new ResolvedTypeVariable(list.getTypeParameters().get(0));
@@ -94,13 +94,16 @@ class ReflectionInterfaceDeclarationTest extends AbstractSymbolResolutionTest {
 		TypeSolver typeResolver = new ReflectionTypeSolver();
 		ResolvedInterfaceDeclaration list = new ReflectionInterfaceDeclaration(List.class, typeResolver);
 		List<ResolvedReferenceType> ancestors = list.getAllAncestors(ResolvedReferenceTypeDeclaration.breadthFirstFunc);
-		assertEquals(2, ancestors.size());
+		assertTrue(ancestors.size() >= 2);
 
+		// JDK 21+ adds SequencedCollection which changes traversal order, so check containment
 		ResolvedTypeVariable typeVariable = new ResolvedTypeVariable(list.getTypeParameters().get(0));
+		Map<String, ResolvedReferenceType> ancestorMap = new HashMap<>();
+		ancestors.forEach(a -> ancestorMap.put(a.getQualifiedName(), a));
 		assertEquals(new ReferenceTypeImpl(new ReflectionInterfaceDeclaration(Collection.class, typeResolver),
-				ImmutableList.of(typeVariable)), ancestors.get(0));
+				ImmutableList.of(typeVariable)), ancestorMap.get("java.util.Collection"));
 		assertEquals(new ReferenceTypeImpl(new ReflectionInterfaceDeclaration(Iterable.class, typeResolver),
-				ImmutableList.of(typeVariable)), ancestors.get(1));
+				ImmutableList.of(typeVariable)), ancestorMap.get("java.lang.Iterable"));
 	}
 	
 	@Test

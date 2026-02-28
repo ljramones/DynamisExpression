@@ -66,9 +66,10 @@ public abstract class AbstractSymbolResolutionTest {
         JDK14(14),
         JDK15(15),
         JDK16(16),
-        JDK17(17);
+        JDK17(17),
+        JDK_LATER(0); // placeholder for JDK 18+, major set dynamically via getCurrentHostJdk()
 
-        private final Integer major;
+        private int major;
 
         /**
          * @deprecated <strong>Note that use of TestJdk should be a last-resort, preferably implementing JDK-agnostic tests.</strong>
@@ -114,6 +115,17 @@ public abstract class AbstractSymbolResolutionTest {
                 return JDK16;
             } else if("17".equals(javaVersion) || javaVersion.startsWith("17.")) {
                 return JDK17;
+            }
+
+            // Handle JDK 18+ dynamically
+            try {
+                int major = Integer.parseInt(javaVersion.split("[^0-9]")[0]);
+                if (major >= 18) {
+                    JDK_LATER.major = major;
+                    return JDK_LATER;
+                }
+            } catch (NumberFormatException e) {
+                // fall through
             }
 
             throw new IllegalStateException("Unable to determine the current version of java running");

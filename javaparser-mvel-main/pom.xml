@@ -155,6 +155,15 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>8</java.version>
 
+        <!-- JDK 25 module opens for Mockito/byte-buddy (experimental flag for JDK 25 class file version) -->
+        <argLine>
+            -Dnet.bytebuddy.experimental=true
+            --add-opens java.base/java.lang=ALL-UNNAMED
+            --add-opens java.base/java.lang.reflect=ALL-UNNAMED
+            --add-opens java.base/java.util=ALL-UNNAMED
+            --add-opens java.base/java.io=ALL-UNNAMED
+        </argLine>
+
         <!-- Maven Plugins -->
     </properties>
 
@@ -200,8 +209,8 @@
                         <configuration>
                             <rules>
                                 <requireJavaVersion>
-                                    <version>[11,18)</version>
-                                    <message>This project requires JDK 11 to 17 to build.</message>
+                                    <version>[11,)</version>
+                                    <message>This project requires JDK 11 or later to build.</message>
                                 </requireJavaVersion>
                             </rules>
                         </configuration>
@@ -425,8 +434,20 @@
             </dependency>
             <dependency>
                 <groupId>org.mockito</groupId>
-                <artifactId>mockito-inline</artifactId>
-                <version>4.6.1</version>
+                <artifactId>mockito-core</artifactId>
+                <version>5.21.0</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>net.bytebuddy</groupId>
+                <artifactId>byte-buddy</artifactId>
+                <version>1.17.7</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>net.bytebuddy</groupId>
+                <artifactId>byte-buddy-agent</artifactId>
+                <version>1.17.7</version>
                 <scope>test</scope>
             </dependency>
         </dependencies>

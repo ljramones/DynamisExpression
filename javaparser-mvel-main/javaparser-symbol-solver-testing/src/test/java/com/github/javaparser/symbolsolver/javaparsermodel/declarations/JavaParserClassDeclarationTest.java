@@ -801,9 +801,13 @@ class JavaParserClassDeclarationTest extends AbstractResolutionTest {
                 "java.lang.Object.wait(long, int)"
         ));
 
-        // Temporary workaround to allow tests to pass on JDK14
+        // Temporary workaround to allow tests to pass on JDK14+
         if(TestJdk.getCurrentHostJdk().getMajorVersion() >= 14) {
             expected.remove("java.lang.Object.registerNatives()");
+        }
+        // JDK 25 added Object.wait0(long)
+        if(TestJdk.getCurrentHostJdk().getMajorVersion() >= 25) {
+            expected.add("java.lang.Object.wait0(long)");
         }
         assertEquals(expected.size(), signatures.size());
         assertThat(signatures, containsInAnyOrder(expected.toArray()));
