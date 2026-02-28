@@ -31,6 +31,14 @@ import org.openjdk.jmh.annotations.*;
 @Measurement(iterations = 5, time = 2)
 public class ContextConstructionBenchmark {
 
+    private static final String[] FACTION_NAMES;
+    static {
+        FACTION_NAMES = new String[100];
+        for (int i = 0; i < 100; i++) {
+            FACTION_NAMES[i] = "Faction" + i;
+        }
+    }
+
     @State(Scope.Thread)
     public static class EvalState {
 
@@ -79,7 +87,7 @@ public class ContextConstructionBenchmark {
         ctx.put("influence", rng.nextInt(0, 100));
         ctx.put("stability", rng.nextInt(0, 100));
         ctx.put("treasury", rng.nextDouble(0, 5000));
-        ctx.put("factionName", "Faction" + rng.nextInt(100));
+        ctx.put("factionName", FACTION_NAMES[rng.nextInt(100)]);
         ctx.put("atWar", rng.nextBoolean());
         return ctx;
     }
@@ -91,7 +99,7 @@ public class ContextConstructionBenchmark {
         fs.setInfluence(rng.nextInt(0, 100));
         fs.setStability(rng.nextInt(0, 100));
         fs.setTreasury(rng.nextDouble(0, 5000));
-        fs.setFactionName("Faction" + rng.nextInt(100));
+        fs.setFactionName(FACTION_NAMES[rng.nextInt(100)]);
         fs.setAtWar(rng.nextBoolean());
         return fs;
     }
@@ -103,7 +111,7 @@ public class ContextConstructionBenchmark {
         ctx.put("influence", rng.nextInt(0, 100));
         ctx.put("stability", rng.nextInt(0, 100));
         ctx.put("treasury", rng.nextDouble(0, 5000));
-        ctx.put("factionName", "Faction" + rng.nextInt(100));
+        ctx.put("factionName", FACTION_NAMES[rng.nextInt(100)]);
         ctx.put("atWar", rng.nextBoolean());
         return state.mapEvaluator.eval(ctx);
     }
@@ -115,7 +123,7 @@ public class ContextConstructionBenchmark {
         fs.setInfluence(rng.nextInt(0, 100));
         fs.setStability(rng.nextInt(0, 100));
         fs.setTreasury(rng.nextDouble(0, 5000));
-        fs.setFactionName("Faction" + rng.nextInt(100));
+        fs.setFactionName(FACTION_NAMES[rng.nextInt(100)]);
         fs.setAtWar(rng.nextBoolean());
         return state.pojoEvaluator.eval(fs);
     }
