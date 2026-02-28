@@ -36,7 +36,6 @@ import com.github.javaparser.ast.stmt.ReturnStmt;
 import com.github.javaparser.resolution.types.ResolvedType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mvel3.parser.ast.expr.BigDecimalLiteralExpr;
 import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
@@ -162,7 +161,6 @@ class TypeResolveTest {
         // FullyQualifiedInlineCast is not actually created. We will eventually remove the class
     }
 
-    @Disabled("HalfBinaryExpr rewriting is not yet implemented. Also not parsed by ANTLR yet.")
     @Test
     void testHalfBinaryExpr() {
         CompilationUnit unit = transpileWithoutRewrite(ctx -> ctx.addDeclaration("value", Integer.class),

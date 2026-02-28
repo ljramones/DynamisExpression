@@ -133,6 +133,7 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 import org.mvel3.parser.ast.expr.BigDecimalLiteralExpr;
 import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
 import org.mvel3.parser.ast.expr.DrlNameExpr;
+import org.mvel3.parser.ast.expr.HalfBinaryExpr;
 import org.mvel3.parser.ast.expr.InlineCastExpr;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpression;
 import org.mvel3.parser.ast.expr.ListCreationLiteralExpressionElement;
@@ -1041,6 +1042,22 @@ public class Mvel3ToJavaParserVisitor extends Mvel3ParserBaseVisitor<Node> {
         Expression right = (Expression) visit(ctx.expression(1));
         return new MethodCallExpr(createTokenRange(ctx), new NameExpr("Integer"), null,
                 new SimpleName("rotateLeft"), new NodeList<>(left, right));
+    }
+
+    @Override
+    public Node visitHalfBinaryExpression(Mvel3Parser.HalfBinaryExpressionContext ctx) {
+        Expression right = (Expression) visit(ctx.expression());
+        String opText = ctx.bop.getText();
+        HalfBinaryExpr.Operator op = switch (opText) {
+            case "==" -> HalfBinaryExpr.Operator.EQUALS;
+            case "!=" -> HalfBinaryExpr.Operator.NOT_EQUALS;
+            case "<" -> HalfBinaryExpr.Operator.LESS;
+            case ">" -> HalfBinaryExpr.Operator.GREATER;
+            case "<=" -> HalfBinaryExpr.Operator.LESS_EQUALS;
+            case ">=" -> HalfBinaryExpr.Operator.GREATER_EQUALS;
+            default -> throw new IllegalStateException("Unknown half-binary operator: " + opText);
+        };
+        return new HalfBinaryExpr(createTokenRange(ctx), right, op);
     }
 
     @Override

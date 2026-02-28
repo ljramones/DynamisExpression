@@ -105,6 +105,9 @@ expression
     // Level 14, Unary operators
     | prefix = ('+' | '-' | '++' | '--' | '~' | '!') expression     #UnaryOperatorExpression
 
+    // MVEL half-binary expression (e.g., < 5 in "value > 1 && < 5")
+    | bop = ('<=' | '>=' | '>' | '<' | '==' | '!=') expression      #HalfBinaryExpression
+
     // Level 13 Cast and object creation
     | '(' annotation* typeType ('&' typeType)* ')' expression       #CastExpression
     | NEW creator                                                   #ObjectCreationExpression
@@ -116,7 +119,8 @@ expression
     | expression bop = ('*' | '/' | '%') expression           #BinaryOperatorExpression
     // Level 11, Additive operators
     | expression bop = ('+' | '-') expression                 #BinaryOperatorExpression
-    // Level 10, Shift operators
+    // Level 10, Shift and rotate operators
+    | expression '<' '<' '<' expression                      #RotateLeftExpression
     | expression ('<' '<' | '>' '>' '>' | '>' '>') expression #BinaryOperatorExpression
     // Level 9, Relational operators
     | expression bop = ('<=' | '>=' | '>' | '<') expression   #BinaryOperatorExpression
