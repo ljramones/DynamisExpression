@@ -44,4 +44,3 @@ bin/
 .mtj.tmp/
 build-*
 *.asc
-.java-version
