@@ -83,7 +83,7 @@ public class MVELCompiler {
                 Evaluator<T, K, R> evaluator = loadClassfileEmitted(bytecode, info);
                 log.debug("Classfile API emitter used for expression: {}", info.expression());
                 return evaluator;
-            } catch (Exception e) {
+            } catch (Exception | VerifyError e) {
                 if (CLASSFILE_DEBUG) {
                     log.debug("Classfile emit threw for: {} | reason: {}", info.expression(), e.getMessage());
                 }

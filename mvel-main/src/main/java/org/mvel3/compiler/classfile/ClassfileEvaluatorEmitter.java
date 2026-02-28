@@ -10,6 +10,7 @@ import com.github.javaparser.ast.type.Type;
 import org.mvel3.CompilerParameters;
 import org.mvel3.ContextType;
 import org.mvel3.transpiler.TranspiledResult;
+import org.mvel3.transpiler.context.Declaration;
 
 import java.lang.classfile.ClassFile;
 import java.lang.classfile.CodeBuilder;
@@ -17,6 +18,7 @@ import java.lang.classfile.TypeKind;
 import java.lang.constant.ClassDesc;
 import java.lang.constant.MethodTypeDesc;
 import java.lang.reflect.AccessFlag;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Set;
 
@@ -54,12 +56,23 @@ public final class ClassfileEvaluatorEmitter {
         BlockStmt body = method.getBody().get();
 
         // Must have at least one return statement (expressions always have a return)
-        boolean hasReturn = false;
         for (Statement stmt : body.getStatements()) {
             if (!isSupportedStatement(stmt)) return false;
-            if (stmt instanceof ReturnStmt) hasReturn = true;
         }
-        return hasReturn;
+        return containsReturn(body);
+    }
+
+    /**
+     * Recursively check whether a statement or block contains at least one return statement.
+     */
+    private static boolean containsReturn(Statement stmt) {
+        return switch (stmt) {
+            case ReturnStmt _ -> true;
+            case BlockStmt bs -> bs.getStatements().stream().anyMatch(ClassfileEvaluatorEmitter::containsReturn);
+            case IfStmt is -> containsReturn(is.getThenStmt())
+                    || is.getElseStmt().map(ClassfileEvaluatorEmitter::containsReturn).orElse(false);
+            default -> false;
+        };
     }
 
     private static boolean isStringType(Type type) {
@@ -190,6 +203,9 @@ public final class ClassfileEvaluatorEmitter {
         switch (stmt) {
             case ReturnStmt rs -> emitReturnStmt(code, rs, slots, params, outClass);
             case ExpressionStmt es -> emitExpressionStmt(code, es, slots, params);
+            case BlockStmt bs -> emitBlockStmt(code, bs, slots, params, outClass);
+            case IfStmt is -> emitIfStmt(code, is, slots, params, outClass);
+            case EmptyStmt _ -> {} // no-op: trailing semicolons
             default -> throw new UnsupportedOperationException(
                     "Unsupported statement type: " + stmt.getClass().getSimpleName());
         }
@@ -212,7 +228,7 @@ public final class ClassfileEvaluatorEmitter {
 
         // The concrete method signature returns the boxed type (e.g. Boolean, Integer).
         // If the expression left a primitive on the stack, box it to match the return type.
-        TypeKind exprKind = inferTypeKind(expr, slots);
+        TypeKind exprKind = inferTypeKind(expr, slots, params);
         if (exprKind == TypeKind.REFERENCE) {
             code.areturn();
         } else {
@@ -303,7 +319,84 @@ public final class ClassfileEvaluatorEmitter {
         }
     }
 
-    // ── Expression emission (Commits 3-4 will expand this) ────────────────
+    // ── Block statement emission ───────────────────────────────────────────
+
+    private static <C, W, O> void emitBlockStmt(
+            CodeBuilder code,
+            BlockStmt bs,
+            LocalSlotTable slots,
+            CompilerParameters<C, W, O> params,
+            Class<?> outClass) {
+
+        for (Statement stmt : bs.getStatements()) {
+            emitStatement(code, stmt, slots, params, outClass);
+        }
+    }
+
+    // ── If statement emission ────────────────────────────────────────────
+
+    private static <C, W, O> void emitIfStmt(
+            CodeBuilder code,
+            IfStmt is,
+            LocalSlotTable slots,
+            CompilerParameters<C, W, O> params,
+            Class<?> outClass) {
+
+        if (is.getElseStmt().isPresent()) {
+            var elseLabel = code.newLabel();
+
+            // Emit condition; result is int (0=false, nonzero=true)
+            emitExpression(code, is.getCondition(), slots, params);
+            code.ifeq(elseLabel);       // if false, jump to else
+
+            // Then branch
+            emitStatement(code, is.getThenStmt(), slots, params, outClass);
+
+            if (endsWithReturn(is.getThenStmt())) {
+                // Both branches return — no goto or endLabel needed after then
+                code.labelBinding(elseLabel);
+                emitStatement(code, is.getElseStmt().get(), slots, params, outClass);
+            } else {
+                // Then branch falls through — need goto to skip else
+                var endLabel = code.newLabel();
+                code.goto_(endLabel);
+
+                code.labelBinding(elseLabel);
+                emitStatement(code, is.getElseStmt().get(), slots, params, outClass);
+
+                code.labelBinding(endLabel);
+            }
+        } else {
+            // if-then (no else)
+            var endLabel = code.newLabel();
+
+            emitExpression(code, is.getCondition(), slots, params);
+            code.ifeq(endLabel);        // if false, skip then block
+
+            emitStatement(code, is.getThenStmt(), slots, params, outClass);
+
+            code.labelBinding(endLabel);
+        }
+    }
+
+    /**
+     * Check whether a statement ends with a return (directly or in its last sub-statement).
+     * Used to avoid emitting dead code after returning branches.
+     */
+    private static boolean endsWithReturn(Statement stmt) {
+        return switch (stmt) {
+            case ReturnStmt _ -> true;
+            case BlockStmt bs -> {
+                List<Statement> stmts = bs.getStatements();
+                yield !stmts.isEmpty() && endsWithReturn(stmts.getLast());
+            }
+            case IfStmt is -> endsWithReturn(is.getThenStmt())
+                    && is.getElseStmt().map(ClassfileEvaluatorEmitter::endsWithReturn).orElse(false);
+            default -> false;
+        };
+    }
+
+    // ── Expression emission ──────────────────────────────────────────────
 
     static <C, W, O> void emitExpression(
             CodeBuilder code,
@@ -445,7 +538,7 @@ public final class ClassfileEvaluatorEmitter {
             case MINUS -> {
                 // -expr → emit expr, then negate
                 emitExpression(code, ue.getExpression(), slots, params);
-                TypeKind kind = inferTypeKind(ue.getExpression(), slots);
+                TypeKind kind = inferTypeKind(ue.getExpression(), slots, params);
                 switch (kind) {
                     case INT -> code.ineg();
                     case LONG -> code.lneg();
@@ -458,7 +551,7 @@ public final class ClassfileEvaluatorEmitter {
             case BITWISE_COMPLEMENT -> {
                 // ~expr → emit expr, XOR with -1
                 emitExpression(code, ue.getExpression(), slots, params);
-                TypeKind kind = inferTypeKind(ue.getExpression(), slots);
+                TypeKind kind = inferTypeKind(ue.getExpression(), slots, params);
                 switch (kind) {
                     case INT -> { code.iconst_m1(); code.ixor(); }
                     case LONG -> { code.ldc(-1L); code.lxor(); }
@@ -492,7 +585,7 @@ public final class ClassfileEvaluatorEmitter {
         }
 
         // Comparison operators on int: >, <, >=, <=, ==, !=
-        if (isIntComparison(be, slots)) {
+        if (isIntComparison(be, slots, params)) {
             emitIntComparison(code, be, slots, params);
             return;
         }
@@ -501,8 +594,8 @@ public final class ClassfileEvaluatorEmitter {
         emitExpression(code, be.getLeft(), slots, params);
         emitExpression(code, be.getRight(), slots, params);
 
-        TypeKind leftKind = inferTypeKind(be.getLeft(), slots);
-        TypeKind rightKind = inferTypeKind(be.getRight(), slots);
+        TypeKind leftKind = inferTypeKind(be.getLeft(), slots, params);
+        TypeKind rightKind = inferTypeKind(be.getRight(), slots, params);
 
         switch (op) {
             case PLUS -> emitAdd(code, leftKind);
@@ -563,8 +656,9 @@ public final class ClassfileEvaluatorEmitter {
         code.labelBinding(endLabel);
     }
 
-    private static boolean isIntComparison(BinaryExpr be, LocalSlotTable slots) {
-        TypeKind leftKind = inferTypeKind(be.getLeft(), slots);
+    private static <C, W, O> boolean isIntComparison(BinaryExpr be, LocalSlotTable slots,
+                                                      CompilerParameters<C, W, O> params) {
+        TypeKind leftKind = inferTypeKind(be.getLeft(), slots, params);
         if (leftKind != TypeKind.INT && leftKind != TypeKind.BOOLEAN) return false;
         return switch (be.getOperator()) {
             case GREATER, LESS, GREATER_EQUALS, LESS_EQUALS, EQUALS, NOT_EQUALS -> true;
@@ -758,49 +852,18 @@ public final class ClassfileEvaluatorEmitter {
             return;
         }
 
-        // POJO getter pattern: __context.getXxx()
-        if (mce.getScope().isPresent() && mce.getArguments().isEmpty()) {
-            Expression scope = mce.getScope().get();
-            if (scope instanceof NameExpr scopeName && slots.contains(scopeName.getNameAsString())) {
-                Type scopeType = slots.type(scopeName.getNameAsString());
-                ClassDesc scopeDesc = ClassfileTypeUtils.toClassDesc(scopeType);
-
-                // Determine return type from the parent VariableDeclarator
-                ClassDesc returnDesc = inferMethodReturnType(mce);
-                emitExpression(code, scope, slots, params);
-                code.invokevirtual(scopeDesc, methodName,
-                        MethodTypeDesc.of(returnDesc));
-                return;
-            }
-        }
-
-        // POJO setter/instance method with arguments: scope.methodName(args)
+        // POJO instance method call: scope.methodName(args...)
+        // Use reflection to resolve the actual method descriptor.
         if (mce.getScope().isPresent()) {
             Expression scope = mce.getScope().get();
             if (scope instanceof NameExpr scopeName && slots.contains(scopeName.getNameAsString())) {
-                Type scopeType = slots.type(scopeName.getNameAsString());
-                ClassDesc scopeDesc = ClassfileTypeUtils.toClassDesc(scopeType);
-
-                // Emit scope (receiver)
-                emitExpression(code, scope, slots, params);
-
-                // Build argument descriptors and emit arguments
-                ClassDesc[] argDescs = new ClassDesc[mce.getArguments().size()];
-                for (int i = 0; i < mce.getArguments().size(); i++) {
-                    Expression arg = mce.getArgument(i);
-                    emitExpression(code, arg, slots, params);
-                    TypeKind argKind = inferTypeKind(arg, slots);
-                    // Box primitives to Object for generic methods
-                    if (argKind != TypeKind.REFERENCE) {
-                        ClassfileTypeUtils.emitBoxing(code, argKind);
-                    }
-                    argDescs[i] = CD_Object;
+                Class<?> scopeClass = resolveVariableClass(scopeName.getNameAsString(), params);
+                if (scopeClass != null) {
+                    emitReflectedMethodCall(code, mce, scopeClass, scopeName, slots, params);
+                    return;
                 }
-
-                // Infer return type
-                ClassDesc returnDesc = inferMethodReturnType(mce);
-                code.invokevirtual(scopeDesc, methodName,
-                        MethodTypeDesc.of(returnDesc, argDescs));
+                // Fallback: no class info, use heuristic-based emission
+                emitHeuristicMethodCall(code, mce, scopeName, methodName, slots, params);
                 return;
             }
         }
@@ -828,7 +891,7 @@ public final class ClassfileEvaluatorEmitter {
         // Emit arguments, widening to double where needed
         for (Expression arg : mce.getArguments()) {
             emitExpression(code, arg, slots, params);
-            TypeKind kind = inferTypeKind(arg, slots);
+            TypeKind kind = inferTypeKind(arg, slots, params);
             if (kind == TypeKind.INT) {
                 code.i2d();
             } else if (kind == TypeKind.FLOAT) {
@@ -863,7 +926,7 @@ public final class ClassfileEvaluatorEmitter {
             emitExpression(code, mce.getArgument(1), slots, params);
             // Arg 2: Object value (box if primitive)
             emitExpression(code, mce.getArgument(2), slots, params);
-            TypeKind valKind = inferTypeKind(mce.getArgument(2), slots);
+            TypeKind valKind = inferTypeKind(mce.getArgument(2), slots, params);
             if (valKind != TypeKind.REFERENCE) {
                 ClassfileTypeUtils.emitBoxing(code, valKind);
             }
@@ -877,7 +940,7 @@ public final class ClassfileEvaluatorEmitter {
             emitExpression(code, mce.getArgument(1), slots, params);
             // Arg 2: Object value (box if primitive)
             emitExpression(code, mce.getArgument(2), slots, params);
-            TypeKind valKind = inferTypeKind(mce.getArgument(2), slots);
+            TypeKind valKind = inferTypeKind(mce.getArgument(2), slots, params);
             if (valKind != TypeKind.REFERENCE) {
                 ClassfileTypeUtils.emitBoxing(code, valKind);
             }
@@ -904,6 +967,156 @@ public final class ClassfileEvaluatorEmitter {
         // expression which shouldn't happen for class-name references.
         throw new UnsupportedOperationException(
                 "Field access not yet supported: " + fae);
+    }
+
+    // ── Reflection-based POJO method call ────────────────────────────────
+
+    /**
+     * Resolve the actual Java Class for a variable by searching CompilerParameters declarations.
+     */
+    private static <C, W, O> Class<?> resolveVariableClass(String varName, CompilerParameters<C, W, O> params) {
+        // Check context variable
+        if (params.contextDeclaration().name().equals(varName) && !params.contextDeclaration().type().isVoid()) {
+            return params.contextDeclaration().type().getClazz();
+        }
+        // Check declared variables
+        for (Declaration<?> decl : params.variableDeclarations()) {
+            if (decl.name().equals(varName)) {
+                return decl.type().getClazz();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Emit a POJO method call using reflection to resolve the actual method descriptor.
+     * This ensures the invokevirtual descriptor matches the real method signature.
+     */
+    private static <C, W, O> void emitReflectedMethodCall(
+            CodeBuilder code,
+            MethodCallExpr mce,
+            Class<?> scopeClass,
+            NameExpr scopeName,
+            LocalSlotTable slots,
+            CompilerParameters<C, W, O> params) {
+
+        String methodName = mce.getNameAsString();
+        int argCount = mce.getArguments().size();
+
+        // Find the method by name and argument count
+        Method method = findMethodByNameAndArgCount(scopeClass, methodName, argCount);
+        if (method == null) {
+            throw new UnsupportedOperationException(
+                    "Cannot resolve method: " + scopeClass.getName() + "." + methodName
+                    + " with " + argCount + " arg(s)");
+        }
+
+        ClassDesc scopeDesc = ClassDesc.of(scopeClass.getCanonicalName());
+
+        // Emit receiver
+        emitExpression(code, scopeName, slots, params);
+
+        // Build parameter descriptors from the actual method signature
+        Class<?>[] paramTypes = method.getParameterTypes();
+        ClassDesc[] paramDescs = new ClassDesc[paramTypes.length];
+        for (int i = 0; i < paramTypes.length; i++) {
+            paramDescs[i] = classDescForJavaClass(paramTypes[i]);
+
+            // Emit argument
+            Expression arg = mce.getArgument(i);
+            emitExpression(code, arg, slots, params);
+
+            // Convert the emitted value to match the parameter type
+            TypeKind argKind = inferTypeKind(arg, slots, params);
+            if (paramTypes[i] == Object.class && argKind != TypeKind.REFERENCE) {
+                // Method takes Object, we have a primitive → box it
+                ClassfileTypeUtils.emitBoxing(code, argKind);
+            }
+            // If method takes a primitive and we emitted a primitive, no conversion needed
+            // (assuming matching types — int→int, etc.)
+        }
+
+        // Build the method type descriptor
+        Class<?> returnType = method.getReturnType();
+        ClassDesc returnDesc = classDescForJavaClass(returnType);
+        code.invokevirtual(scopeDesc, methodName,
+                MethodTypeDesc.of(returnDesc, paramDescs));
+
+        // If the method is used as an ExpressionStmt (value discarded) and returns non-void,
+        // we need to pop the return value. But if void, nothing is on the stack.
+        // This is handled by the caller (emitExpressionStmt) — void methods leave nothing,
+        // non-void expression stmts should pop. Check if parent is ExpressionStmt.
+    }
+
+    /**
+     * Fallback for when we can't resolve the class via reflection.
+     * Uses heuristic-based method descriptors (all Object args, Object return).
+     */
+    private static <C, W, O> void emitHeuristicMethodCall(
+            CodeBuilder code,
+            MethodCallExpr mce,
+            NameExpr scopeName,
+            String methodName,
+            LocalSlotTable slots,
+            CompilerParameters<C, W, O> params) {
+
+        Type scopeType = slots.type(scopeName.getNameAsString());
+        ClassDesc scopeDesc = ClassfileTypeUtils.toClassDesc(scopeType);
+
+        emitExpression(code, scopeName, slots, params);
+
+        if (mce.getArguments().isEmpty()) {
+            // No-arg method: infer return type from parent context
+            ClassDesc returnDesc = inferMethodReturnType(mce);
+            code.invokevirtual(scopeDesc, methodName, MethodTypeDesc.of(returnDesc));
+        } else {
+            // Method with args: box all to Object
+            ClassDesc[] argDescs = new ClassDesc[mce.getArguments().size()];
+            for (int i = 0; i < mce.getArguments().size(); i++) {
+                Expression arg = mce.getArgument(i);
+                emitExpression(code, arg, slots, params);
+                TypeKind argKind = inferTypeKind(arg, slots, params);
+                if (argKind != TypeKind.REFERENCE) {
+                    ClassfileTypeUtils.emitBoxing(code, argKind);
+                }
+                argDescs[i] = CD_Object;
+            }
+            ClassDesc returnDesc = inferMethodReturnType(mce);
+            code.invokevirtual(scopeDesc, methodName,
+                    MethodTypeDesc.of(returnDesc, argDescs));
+        }
+    }
+
+    /**
+     * Find a public method on a class by name and argument count.
+     * For overloaded methods, returns the first match.
+     */
+    private static Method findMethodByNameAndArgCount(Class<?> clazz, String methodName, int argCount) {
+        for (Method m : clazz.getMethods()) {
+            if (m.getName().equals(methodName) && m.getParameterCount() == argCount) {
+                return m;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Convert a Java Class to a ClassDesc.
+     */
+    private static ClassDesc classDescForJavaClass(Class<?> clazz) {
+        if (clazz == void.class) return CD_void;
+        if (clazz == int.class) return CD_int;
+        if (clazz == long.class) return CD_long;
+        if (clazz == double.class) return CD_double;
+        if (clazz == float.class) return CD_float;
+        if (clazz == boolean.class) return CD_boolean;
+        if (clazz == byte.class) return CD_byte;
+        if (clazz == char.class) return CD_char;
+        if (clazz == short.class) return CD_short;
+        if (clazz.isArray()) {
+            return classDescForJavaClass(clazz.getComponentType()).arrayType();
+        }
+        return ClassDesc.of(clazz.getCanonicalName());
     }
 
     // ── Assignment emission ───────────────────────────────────────────────
@@ -972,6 +1185,11 @@ public final class ClassfileEvaluatorEmitter {
         return switch (stmt) {
             case ReturnStmt rs -> rs.getExpression().map(ClassfileEvaluatorEmitter::isSupportedExpression).orElse(true);
             case ExpressionStmt es -> isSupportedExpression(es.getExpression());
+            case BlockStmt bs -> bs.getStatements().stream().allMatch(ClassfileEvaluatorEmitter::isSupportedStatement);
+            case IfStmt is -> isSupportedExpression(is.getCondition())
+                    && isSupportedStatement(is.getThenStmt())
+                    && is.getElseStmt().map(ClassfileEvaluatorEmitter::isSupportedStatement).orElse(true);
+            case EmptyStmt _ -> true;
             default -> false;
         };
     }
@@ -1067,11 +1285,20 @@ public final class ClassfileEvaluatorEmitter {
      * This is a best-effort heuristic based on the AST structure.
      */
     static TypeKind inferTypeKind(Expression expr, LocalSlotTable slots) {
+        return inferTypeKind(expr, slots, null);
+    }
+
+    /**
+     * Infer the JVM TypeKind that an expression will leave on the stack.
+     * When params is non-null, uses reflection to resolve POJO method return types.
+     */
+    static <C, W, O> TypeKind inferTypeKind(Expression expr, LocalSlotTable slots,
+                                             CompilerParameters<C, W, O> params) {
         return switch (expr) {
             case IntegerLiteralExpr _ -> TypeKind.INT;
             case LongLiteralExpr _ -> TypeKind.LONG;
             case DoubleLiteralExpr _ -> TypeKind.DOUBLE;
-            case BooleanLiteralExpr _ -> TypeKind.INT; // booleans are int on JVM
+            case BooleanLiteralExpr _ -> TypeKind.BOOLEAN;
             case StringLiteralExpr _ -> TypeKind.REFERENCE;
             case NullLiteralExpr _ -> TypeKind.REFERENCE;
             case CharLiteralExpr _ -> TypeKind.INT;
@@ -1081,7 +1308,7 @@ public final class ClassfileEvaluatorEmitter {
                 }
                 yield TypeKind.REFERENCE;
             }
-            case EnclosedExpr ee -> inferTypeKind(ee.getInner(), slots);
+            case EnclosedExpr ee -> inferTypeKind(ee.getInner(), slots, params);
             case CastExpr ce -> {
                 if (ce.getType().isPrimitiveType()) {
                     yield ClassfileTypeUtils.toTypeKind(ce.getType());
@@ -1090,12 +1317,12 @@ public final class ClassfileEvaluatorEmitter {
             }
             case UnaryExpr ue -> {
                 if (ue.getOperator() == UnaryExpr.Operator.LOGICAL_COMPLEMENT) {
-                    yield TypeKind.INT; // boolean → int
+                    yield TypeKind.BOOLEAN;
                 }
                 if (ue.getOperator() == UnaryExpr.Operator.BITWISE_COMPLEMENT) {
-                    yield inferTypeKind(ue.getExpression(), slots); // same type as operand
+                    yield inferTypeKind(ue.getExpression(), slots, params);
                 }
-                yield inferTypeKind(ue.getExpression(), slots);
+                yield inferTypeKind(ue.getExpression(), slots, params);
             }
             case BinaryExpr be -> {
                 BinaryExpr.Operator op = be.getOperator();
@@ -1103,20 +1330,48 @@ public final class ClassfileEvaluatorEmitter {
                         || op == BinaryExpr.Operator.GREATER || op == BinaryExpr.Operator.LESS
                         || op == BinaryExpr.Operator.GREATER_EQUALS || op == BinaryExpr.Operator.LESS_EQUALS
                         || op == BinaryExpr.Operator.EQUALS || op == BinaryExpr.Operator.NOT_EQUALS) {
-                    yield TypeKind.INT; // boolean result
+                    yield TypeKind.BOOLEAN;
                 }
                 // Bitwise and shift operations preserve the left operand type
-                yield inferTypeKind(be.getLeft(), slots);
+                yield inferTypeKind(be.getLeft(), slots, params);
             }
             case MethodCallExpr mce -> {
                 // Math static calls return double
                 if (mce.getScope().isPresent() && isStaticMathScope(mce.getScope().get())) {
                     yield TypeKind.DOUBLE;
                 }
-                yield TypeKind.REFERENCE; // method calls return Object by default
+                // Use reflection to resolve POJO method return types
+                if (params != null && mce.getScope().isPresent()
+                        && mce.getScope().get() instanceof NameExpr scopeName) {
+                    Class<?> scopeClass = resolveVariableClass(scopeName.getNameAsString(), params);
+                    if (scopeClass != null) {
+                        Method m = findMethodByNameAndArgCount(scopeClass, mce.getNameAsString(),
+                                                               mce.getArguments().size());
+                        if (m != null) {
+                            yield typeKindForJavaClass(m.getReturnType());
+                        }
+                    }
+                }
+                yield TypeKind.REFERENCE;
             }
             default -> TypeKind.REFERENCE;
         };
+    }
+
+    /**
+     * Map a Java Class to its JVM TypeKind.
+     */
+    private static TypeKind typeKindForJavaClass(Class<?> clazz) {
+        if (clazz == int.class) return TypeKind.INT;
+        if (clazz == long.class) return TypeKind.LONG;
+        if (clazz == double.class) return TypeKind.DOUBLE;
+        if (clazz == float.class) return TypeKind.FLOAT;
+        if (clazz == boolean.class) return TypeKind.INT; // booleans are int on JVM
+        if (clazz == byte.class) return TypeKind.BYTE;
+        if (clazz == char.class) return TypeKind.CHAR;
+        if (clazz == short.class) return TypeKind.SHORT;
+        if (clazz == void.class) return TypeKind.VOID;
+        return TypeKind.REFERENCE;
     }
 
     /**
@@ -1227,15 +1482,13 @@ public final class ClassfileEvaluatorEmitter {
         BlockStmt body = method.getBody().get();
 
         // Check statement support
-        boolean hasReturn = false;
         for (Statement stmt : body.getStatements()) {
             if (!isSupportedStatement(stmt)) {
                 return "unsupported statement: " + stmt.getClass().getSimpleName()
                         + " → " + stmt.toString().trim();
             }
-            if (stmt instanceof ReturnStmt) hasReturn = true;
         }
-        if (!hasReturn) return "no return statement";
+        if (!containsReturn(body)) return "no return statement";
 
         return null; // emittable
     }
