@@ -54,7 +54,7 @@ public class WarmEvaluationBenchmark {
             context = new HashMap<>();
         }
 
-        @Setup(Level.Invocation)
+        @Setup(Level.Iteration)
         public void mutateContext() {
             ThreadLocalRandom rng = ThreadLocalRandom.current();
             context.put("influence", rng.nextInt(0, 100));
@@ -90,7 +90,7 @@ public class WarmEvaluationBenchmark {
             context = new FactionState();
         }
 
-        @Setup(Level.Invocation)
+        @Setup(Level.Iteration)
         public void mutateContext() {
             ThreadLocalRandom rng = ThreadLocalRandom.current();
             context.setInfluence(rng.nextInt(0, 100));
@@ -123,7 +123,7 @@ public class WarmEvaluationBenchmark {
             context = new HashMap<>();
         }
 
-        @Setup(Level.Invocation)
+        @Setup(Level.Iteration)
         public void mutateContext() {
             ThreadLocalRandom rng = ThreadLocalRandom.current();
             context.put("influence", rng.nextInt(0, 100));
