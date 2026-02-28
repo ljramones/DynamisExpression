@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This workspace contains two interdependent Java projects that together implement the MVEL3 expression language transpiler:
 
 - **`mvel-main/`** — MVEL3: transpiles MVEL expressions into Java source, compiles in-memory via javac, runs bytecode. Alpha-quality (`3.0.0-SNAPSHOT`).
-- **`javaparser-mvel-main/`** — Fork of JavaParser (v3.25.5) adding ~28 MVEL3/DRL-specific AST node types. Serves as the core IR for the MVEL3 transpiler. GroupId: `org.mvel.javaparser`, version: `3.25.5-mvel3-SNAPSHOT`.
+- **`javaparser-mvel-main/`** — Fork of JavaParser (v3.25.5) adding ~18 MVEL3-specific AST node types. Serves as the core IR for the MVEL3 transpiler. GroupId: `org.mvel.javaparser`, version: `3.25.5-mvel3-SNAPSHOT`.
 
 **Dependency direction:** `mvel-main` depends on `javaparser-mvel-main`. The javaparser fork must be built and installed first.
 
@@ -91,7 +91,7 @@ Four stages:
 
 ### MVEL AST Nodes in javaparser-mvel
 
-All MVEL/DRL nodes live under `javaparser-core/src/main/java/org/mvel3/parser/ast/`. Two-tier visitor pattern: simple MVEL nodes (`InlineCastExpr`, `BigDecimalLiteralExpr`, etc.) are in standard `GenericVisitor`/`VoidVisitor`; DRL-specific nodes use extension interfaces `DrlGenericVisitor`/`DrlVoidVisitor`.
+All MVEL nodes live under `javaparser-core/src/main/java/org/mvel3/parser/ast/`. Two-tier visitor pattern: simple MVEL nodes (`InlineCastExpr`, `BigDecimalLiteralExpr`, etc.) are in standard `GenericVisitor`/`VoidVisitor`; extension nodes (`DrlxExpression`, `NullSafeFieldAccessExpr`, `ModifyStatement`, etc.) use extension interfaces `DrlGenericVisitor`/`DrlVoidVisitor`.
 
 ### Adding a New MVEL AST Node (javaparser-mvel)
 
@@ -108,15 +108,15 @@ Do not hand-edit methods with `@Generated` annotations.
 - **JDK 25 baseline** — Both modules target JDK 25. DynamisExpression is an internal dependency, not published for external consumption, so there is no need for older JVM compatibility. This decision is final and should not be relitigated.
 - **javaparser-mvel source level is Java 17** — Upgraded from 8, enabling sealed classes and other JDK 17+ features
 - **mvel-main source level is Java 25** — Upgraded from 17, enabling pattern matching switches and other JDK 21+ features
-- **Sealed AST hierarchies** — Three MVEL AST hierarchies are sealed: `TemporalChunkExpr`, `AbstractContextStatement`, `RuleItem`. All permitted subtypes are `final`.
+- **Sealed AST hierarchies** — Two MVEL AST hierarchies are sealed: `TemporalChunkExpr`, `AbstractContextStatement`. All permitted subtypes are `final`.
 - **Pattern matching** — `MVELToJavaRewriter.rewriteNode()` uses a pattern matching switch instead of string-based class-name dispatch. `AstUtils` methods use switch expressions with pattern matching.
+- **Exception hierarchy** — All mvel-main exceptions extend `DynamisExpressionException` (unchecked). Pipeline stages have typed exceptions: `ExpressionParseException`, `ExpressionTranspileException`, `ExpressionCompileException`, `ExpressionEvaluationException`. Specific subtypes: `MethodResolutionException`, `TypeResolutionException`. Existing `MVELTranspilerException` extends `ExpressionTranspileException`; `KieMemoryCompilerException` extends `ExpressionCompileException`. Downstream code can `catch (DynamisExpressionException)` to handle all expression failures.
 - Tests use JUnit 5 (Jupiter) + AssertJ. mvel-main Surefire runs alphabetically with `mvel3.compiler.lambda.resetOnTestStartup=true`
 - Checkstyle config for javaparser-mvel: `dev-files/JavaParser-CheckStyle.xml`
 
 ## Known Issues
 
-- Alpha quality: 8 disabled tests in mvel-main, 24 disabled tests in javaparser-mvel-main (upstream JavaParser issues, out of scope), 20+ TODOs in critical paths
-- **mvel-main disabled tests (8):** unsigned left shift `<<<` (1, needs design decision), single-quote strings (1), DRL custom operators (3, deferred — Drools coupling removed), method expressions (1), text block type resolution (1), HalfBinaryExpr rewriting (1)
+- Alpha quality: 0 disabled tests in mvel-main (599 passing), 24 disabled tests in javaparser-mvel-main (upstream JavaParser issues, out of scope), 20+ TODOs in critical paths
 - **javaparser-mvel-main disabled tests (24):** upstream JavaParser test issues, out of scope for DynamisExpression
 - Thread safety not addressed in `ClassManager`, `LambdaRegistry`, `MVEL.get()`
 - `DrlCloneVisitor` mostly stubbed (returns null for most MVEL nodes). DRL coupling was removed; stubs are documented as out of scope.

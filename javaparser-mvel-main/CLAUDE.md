@@ -58,9 +58,9 @@ Generated methods carry `@Generated` annotations indicating which generator prod
 
 ## MVEL-Specific Code
 
-All MVEL/DRL AST nodes live under `javaparser-core/src/main/java/org/mvel3/parser/ast/`:
+All MVEL AST nodes live under `javaparser-core/src/main/java/org/mvel3/parser/ast/`:
 
-- **`expr/`** — MVEL expression nodes: `DrlxExpression`, `OOPathExpr`, `OOPathChunk`, `InlineCastExpr`, `PointFreeExpr`, `HalfBinaryExpr`, `NullSafeFieldAccessExpr`, `NullSafeMethodCallExpr`, `DrlNameExpr`, `BigDecimalLiteralExpr`, `BigIntegerLiteralExpr`, `TemporalLiteralExpr`, `ModifyStatement`, `WithStatement`, `MapCreationLiteralExpression`, `ListCreationLiteralExpression`, `RuleDeclaration`, and related types (~28 node classes)
+- **`expr/`** — MVEL expression nodes: `DrlxExpression`, `InlineCastExpr`, `HalfBinaryExpr`, `NullSafeFieldAccessExpr`, `NullSafeMethodCallExpr`, `BigDecimalLiteralExpr`, `BigIntegerLiteralExpr`, `TemporalLiteralExpr`, `ModifyStatement`, `WithStatement`, `MapCreationLiteralExpression`, `ListCreationLiteralExpression`, and related types (~18 node classes)
 - **`visitor/`** — `DrlVoidVisitor`, `DrlGenericVisitor` (extend standard visitors), `DrlVoidVisitorAdapter`, `DrlGenericVisitorWithDefaults`, `DrlCloneVisitor`
 
 ## Visitor Pattern Design
@@ -69,7 +69,7 @@ Two-tier visitor integration:
 
 1. **Simple/universal MVEL nodes** (`InlineCastExpr`, `BigDecimalLiteralExpr`, `BigIntegerLiteralExpr`) are added directly to the standard `GenericVisitor`/`VoidVisitor` interfaces — all visitor implementations must handle them.
 
-2. **DRL-specific nodes** (`DrlxExpression`, `OOPathExpr`, `PointFreeExpr`, `RuleDeclaration`, etc.) are behind extension interfaces `DrlGenericVisitor`/`DrlVoidVisitor`. The `DrlVoidVisitorAdapter` wraps any standard visitor to make it safe on MVEL-containing trees.
+2. **Extension nodes** (`DrlxExpression`, `NullSafeFieldAccessExpr`, `ModifyStatement`, `WithStatement`, etc.) are behind extension interfaces `DrlGenericVisitor`/`DrlVoidVisitor`. The `DrlVoidVisitorAdapter` wraps any standard visitor to make it safe on MVEL-containing trees.
 
 ## Adding a New MVEL AST Node
 
@@ -82,7 +82,7 @@ Two-tier visitor integration:
 ## Key Conventions
 
 - Checkstyle config: `dev-files/JavaParser-CheckStyle.xml`
-- The JavaCC grammar file is at `javaparser-core/src/main/javacc/java.jj` (~5800 lines). MVEL grammar rules are **not** in this file — MVEL nodes are constructed programmatically or via external tooling (`drlx-parser` project).
+- The JavaCC grammar file is at `javaparser-core/src/main/javacc/java.jj` (~5800 lines). MVEL grammar rules are **not** in this file — MVEL nodes are constructed programmatically.
 - Tests use JUnit 5 (core-testing) and JBehave (core-testing-bdd). BDD stories are in `src/test/resources/**/*.story`.
-- Java source level is 17. Three MVEL AST hierarchies (`TemporalChunkExpr`, `AbstractContextStatement`, `RuleItem`) are sealed with final subtypes.
+- Java source level is 17. Two MVEL AST hierarchies (`TemporalChunkExpr`, `AbstractContextStatement`) are sealed with final subtypes.
 - `TemporalLiteralArguments` is a record (not an AST node, zero callers).
