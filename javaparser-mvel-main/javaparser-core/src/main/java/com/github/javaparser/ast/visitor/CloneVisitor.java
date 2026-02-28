@@ -1539,14 +1539,9 @@ public class CloneVisitor implements GenericVisitor<Visitable, Object> {
 
     @Override
     public Visitable visit(final AbstractContextStatement<?, ?> n, final Object arg) {
-        NodeList<Statement> expressions = cloneList(n.getExpressions(), arg);
-        Expression target = cloneNode(n.getTarget(), arg);
-        Comment comment = cloneNode(n.getComment(), arg);
-        AbstractContextStatement<?, ?> r = new AbstractContextStatement<>(n.getTokenRange().orElse(null), target, expressions);
-        r.setComment(comment);
-        n.getOrphanComments().stream().map(Comment::clone).forEach(r::addOrphanComment);
-        copyData(n, r);
-        return r;
+        if (n instanceof ModifyStatement m) return visit(m, arg);
+        if (n instanceof WithStatement w) return visit(w, arg);
+        throw new IllegalStateException("Unknown AbstractContextStatement subtype: " + n.getClass().getName());
     }
 
     @Override

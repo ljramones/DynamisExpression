@@ -27,7 +27,8 @@ import com.github.javaparser.ast.visitor.CloneVisitor;
 import com.github.javaparser.metamodel.TemporalChunkExprMetaModel;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
 
-public abstract class TemporalChunkExpr extends LiteralExpr {
+public abstract sealed class TemporalChunkExpr extends LiteralExpr
+        permits TemporalLiteralChunkExpr, TemporalLiteralInfiniteChunkExpr {
 
     @AllFieldsConstructor
     public TemporalChunkExpr() {

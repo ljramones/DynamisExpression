@@ -14,7 +14,7 @@ import com.github.javaparser.metamodel.ModifyStatementMetaModel;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
 import com.github.javaparser.ast.Generated;
 
-public class ModifyStatement extends AbstractContextStatement<ModifyStatement, Expression> {
+public final class ModifyStatement extends AbstractContextStatement<ModifyStatement, Expression> {
 
     @AllFieldsConstructor
     public ModifyStatement(Expression target, NodeList<Statement> expressions) {

@@ -25,7 +25,8 @@ import com.github.javaparser.ast.visitor.CloneVisitor;
 import com.github.javaparser.metamodel.RuleItemMetaModel;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
 
-public abstract class RuleItem extends Node {
+public abstract sealed class RuleItem extends Node
+        permits RulePattern, RuleJoinedPatterns, RuleConsequence {
 
     @AllFieldsConstructor
     public RuleItem() {

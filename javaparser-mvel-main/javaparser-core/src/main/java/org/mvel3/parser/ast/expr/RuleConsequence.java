@@ -30,7 +30,7 @@ import com.github.javaparser.metamodel.RuleConsequenceMetaModel;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
 import com.github.javaparser.ast.Generated;
 
-public class RuleConsequence extends RuleItem {
+public final class RuleConsequence extends RuleItem {
 
     private Statement statement;
 

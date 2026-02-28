@@ -30,7 +30,7 @@ import com.github.javaparser.metamodel.RulePatternMetaModel;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
 import com.github.javaparser.ast.Generated;
 
-public class RulePattern extends RuleItem {
+public final class RulePattern extends RuleItem {
 
     private SimpleName type;
 

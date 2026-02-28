@@ -28,7 +28,7 @@ import com.github.javaparser.metamodel.RuleJoinedPatternsMetaModel;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
 import com.github.javaparser.ast.Generated;
 
-public class RuleJoinedPatterns extends RuleItem {
+public final class RuleJoinedPatterns extends RuleItem {
 
     private Type type;
 

@@ -14,7 +14,7 @@ import com.github.javaparser.metamodel.WithStatementMetaModel;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
 import com.github.javaparser.ast.Generated;
 
-public class WithStatement extends AbstractContextStatement<WithStatement, Expression> {
+public final class WithStatement extends AbstractContextStatement<WithStatement, Expression> {
 
     @AllFieldsConstructor
     public WithStatement(Expression target, NodeList<Statement> expressions) {

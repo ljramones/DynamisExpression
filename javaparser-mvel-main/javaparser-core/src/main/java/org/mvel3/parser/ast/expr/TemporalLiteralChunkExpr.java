@@ -31,7 +31,7 @@ import com.github.javaparser.metamodel.TemporalLiteralChunkExprMetaModel;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
 import com.github.javaparser.ast.Generated;
 
-public class TemporalLiteralChunkExpr extends TemporalChunkExpr {
+public final class TemporalLiteralChunkExpr extends TemporalChunkExpr {
 
     private int value;
 
