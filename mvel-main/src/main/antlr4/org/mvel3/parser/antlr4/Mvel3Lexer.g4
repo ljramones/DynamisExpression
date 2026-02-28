@@ -5,11 +5,6 @@ lexer grammar Mvel3Lexer;
 import JavaLexer;
 
 // MVEL-specific keywords and operators
-IN        : 'in';
-CONTAINS  : 'contains';
-MATCHES   : 'matches';
-SOUNDSLIKE: 'soundslike';
-STRSIM    : 'strsim';
 FOREACH   : 'foreach';
 MODIFY    : 'modify';
 WITH      : 'with';
@@ -17,6 +12,7 @@ WITH      : 'with';
 // MVEL-specific operators
 HASH      : '#';
 EXCL_DOT  : '!.';
+POWER     : '**';
 
 // MVEL-specific literals (defined to avoid conflicts with imported tokens)
 // BigDecimal literals with 'B' suffix

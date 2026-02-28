@@ -197,7 +197,6 @@ class ArithmeticTest {
     assertThat(executeExpressionWithDefaultVariables(expression)).isEqualTo(result);
   }
 
-  @Disabled("DROOLS-6572 - Unable to parse **")
   @Test
   void testPowerOf() {
     assertThat(executeExpressionWithDefaultVariables("5 ** 2")).isEqualTo(25);
@@ -289,7 +288,6 @@ class ArithmeticTest {
     assertThat(executeExpressionWithDefaultVariables(expression)).isEqualTo(expected);
   }
 
-  @Disabled("DROOLS-6572 - Unable to parse **")
   @Test
   void testMath22() {
     String expression = "(100-50)*70-30*(20-9)**3";
@@ -298,16 +296,14 @@ class ArithmeticTest {
     assertThat(executeExpressionWithDefaultVariables(expression)).isEqualTo(result);
   }
 
-  @Disabled("DROOLS-6572 - Unable to parse **")
   @Test
   void testMath22b() {
-    String expression = "a = 100; b = 50; c = 70; d = 30; e = 20; f = 9; g = 3; (a-b)*c-d*(e-f)**g";
+    String expression = "var a = 100; var b = 50; var c = 70; var d = 30; var e = 20; var f = 9; var g = 3; return (a-b)*c-d*(e-f)**g;";
     int result = (int) ((100 - 50) * 70 - 30 * Math.pow(20 - 9, 3));
 
     assertThat(executeExpression(expression, Collections.emptyMap())).isEqualTo(result);
   }
 
-  @Disabled("DROOLS-6572 - Unable to parse **")
   @Test
   void testMath23() {
     String expression = "10 ** (3)*10**3";
@@ -332,7 +328,6 @@ class ArithmeticTest {
     assertThat(executeExpressionWithDefaultVariables(expression)).isEqualTo(result);
   }
 
-  @Disabled("DROOLS-6572 - Unable to parse **")
   @Test
   void testMath26() {
     String expression = "5 + 3 * 8 * 2 ** 2";
@@ -341,7 +336,6 @@ class ArithmeticTest {
     assertThat(executeExpressionWithDefaultVariables(expression)).isEqualTo(result);
   }
 
-  @Disabled("DROOLS-6572 - Unable to parse **")
   @Test
   void testMath27() {
     String expression = "50 + 30 * 80 * 20 ** 3 * 51";
@@ -350,7 +344,6 @@ class ArithmeticTest {
     assertThat(executeExpressionWithDefaultVariables(expression)).isEqualTo((int) result);
   }
 
-  @Disabled("DROOLS-6572 - Unable to parse **")
   @Test
   void testMath28() {
     String expression = "50 + 30 + 80 + 11 ** 2 ** 2 * 51";
@@ -375,11 +368,10 @@ class ArithmeticTest {
     assertThat(executeExpressionWithDefaultVariables(expression)).isEqualTo(result);
   }
 
-  @Disabled("DROOLS-6572 - Unable to parse **")
   @Test
   void testMath31() {
     String expression = "40 / 20 + 5 - 4 + 8 / 2 * 2 * 6 ** 2 + 6 - 8";
-    double result = 40f / 20f + 5f - 4f + 8f / 2f * 2f * Math.pow(6, 2) + 6f - 8f;
+    int result = 40 / 20 + 5 - 4 + 8 / 2 * 2 * (int) Math.pow(6, 2) + 6 - 8;
 
     assertThat(executeExpressionWithDefaultVariables(expression)).isEqualTo(result);
   }

@@ -110,6 +110,8 @@ expression
     | NEW creator                                                   #ObjectCreationExpression
 
     // Level 12 to 1, Remaining operators
+    // Power operator (higher precedence than multiplicative)
+    | expression POWER expression                              #PowerExpression
     // Level 12, Multiplicative operators
     | expression bop = ('*' | '/' | '%') expression           #BinaryOperatorExpression
     // Level 11, Additive operators

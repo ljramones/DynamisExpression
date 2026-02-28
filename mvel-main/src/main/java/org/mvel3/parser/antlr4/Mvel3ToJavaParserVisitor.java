@@ -1028,6 +1028,15 @@ public class Mvel3ToJavaParserVisitor extends Mvel3ParserBaseVisitor<Node> {
     }
 
     @Override
+    public Node visitPowerExpression(Mvel3Parser.PowerExpressionContext ctx) {
+        Expression left = (Expression) visit(ctx.expression(0));
+        Expression right = (Expression) visit(ctx.expression(1));
+        MethodCallExpr mathPow = new MethodCallExpr(createTokenRange(ctx), new NameExpr("Math"), null,
+                new SimpleName("pow"), new NodeList<>(left, right));
+        return new CastExpr(PrimitiveType.intType(), mathPow);
+    }
+
+    @Override
     public Node visitBinaryOperatorExpression(Mvel3Parser.BinaryOperatorExpressionContext ctx) {
         Expression left = (Expression) visit(ctx.expression(0));
         Expression right = (Expression) visit(ctx.expression(1));
