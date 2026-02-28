@@ -48,6 +48,9 @@ import org.mvel3.transpiler.context.Declaration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.mvel3.compiler.classfile.ClassfileEvaluatorEmitter;
+
+import java.lang.invoke.MethodHandles;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -62,10 +65,48 @@ public class MVELCompiler {
     private static final Logger log = LoggerFactory.getLogger(MVELCompiler.class);
 
     public <T, K, R> Evaluator<T, K, R> compile(CompilerParameters<T, K, R> info) {
-        CompilationUnit unit = compileNoLoad(info);
-        Evaluator<T, K, R> evaluator = compileEvaluator(unit, info);
+        // Phase 1: Try Classfile API direct bytecode emission (bypasses javac entirely)
+        // Skip when Lambda persistence is enabled — persistence requires javac's classfile format
+        // for ASM-based deduplication. This restriction is lifted in Phase 3.
+        TranspiledResult transpiled = transpile(info);
+        if (!LambdaRegistry.PERSISTENCE_ENABLED && ClassfileEvaluatorEmitter.canEmit(transpiled)) {
+            try {
+                byte[] bytecode = ClassfileEvaluatorEmitter.emit(info, transpiled);
+                Evaluator<T, K, R> evaluator = loadClassfileEmitted(bytecode, info);
+                log.debug("Classfile API emitter used for expression: {}", info.expression());
+                return evaluator;
+            } catch (Exception e) {
+                log.debug("Classfile API emission failed, falling back to javac: {}", e.getMessage());
+                // Fall through to javac pipeline
+            }
+        }
 
+        // Javac fallback: full pipeline (print AST → javac → bytecode)
+        CompilationUnit unit = new CompilationUnitGenerator(
+                transpiled.getTranspilerContext().getParser()).createCompilationUnit(transpiled, info);
+        Evaluator<T, K, R> evaluator = compileEvaluator(unit, info);
         return evaluator;
+    }
+
+    /**
+     * Load bytecode emitted by the Classfile API emitter via defineHiddenClass.
+     * Bypasses ClassManager's ASM-based deduplication (ASM doesn't support classfile v69).
+     * This will be unified with ClassManager in Phase 3 when ASM is removed.
+     */
+    @SuppressWarnings("unchecked")
+    private <T, K, R> Evaluator<T, K, R> loadClassfileEmitted(byte[] bytecode, CompilerParameters<T, K, R> info) {
+        try {
+            ClassManager clsManager = info.classManager();
+            MethodHandles.Lookup lookup = (clsManager != null)
+                    ? clsManager.getLookupSupplier().get()
+                    : MethodHandles.lookup();
+            Class<?> clazz = lookup.defineHiddenClass(bytecode, true).lookupClass();
+            return (Evaluator<T, K, R>) clazz.getConstructor().newInstance();
+        } catch (Exception e) {
+            throw new ExpressionCompileException(
+                    "Failed to load Classfile API emitted class",
+                    null, e.getMessage(), e);
+        }
     }
 
     public <T, K, R> TranspiledResult transpile(CompilerParameters<T, K, R> info) {
