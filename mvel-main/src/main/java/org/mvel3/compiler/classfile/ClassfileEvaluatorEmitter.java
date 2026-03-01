@@ -1034,7 +1034,8 @@ public final class ClassfileEvaluatorEmitter {
      */
     private static void emitStringBuilderAppend(CodeBuilder code, TypeKind kind, ClassDesc CD_StringBuilder) {
         ClassDesc argDesc = switch (kind) {
-            case INT, BOOLEAN, BYTE, SHORT, CHAR -> CD_int;
+            case BOOLEAN -> CD_boolean; // StringBuilder.append(boolean) → "true"/"false"
+            case INT, BYTE, SHORT, CHAR -> CD_int;
             case LONG -> CD_long;
             case DOUBLE -> CD_double;
             case FLOAT -> CD_float;

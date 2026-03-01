@@ -64,20 +64,18 @@ public class MVELCompiler {
 
     private static final Logger log = LoggerFactory.getLogger(MVELCompiler.class);
 
-    static final boolean CLASSFILE_EMITTER_ENABLED =
-            !"false".equalsIgnoreCase(System.getProperty("mvel3.compiler.classfile.emitter", "true"));
-
     private static final boolean CLASSFILE_DEBUG =
             "true".equalsIgnoreCase(System.getProperty("mvel3.compiler.classfile.debug"));
 
     public <T, K, R> Evaluator<T, K, R> compile(CompilerParameters<T, K, R> info) {
-        // Phase 1: Try Classfile API direct bytecode emission (bypasses javac entirely)
-        // Skip when Lambda persistence is enabled — persistence requires javac's classfile format
-        // for ASM-based deduplication. This restriction is lifted in Phase 3.
-        // Kill-switch: -Dmvel3.compiler.classfile.emitter=false forces javac for all expressions.
         TranspiledResult transpiled = transpile(info);
-        if (CLASSFILE_EMITTER_ENABLED && !LambdaRegistry.PERSISTENCE_ENABLED
-                && ClassfileEvaluatorEmitter.canEmit(transpiled)) {
+
+        // Primary path: Classfile API direct bytecode emission (no javac)
+        // Handles ~98.6% of expressions. See ClassfileEvaluatorEmitter.canEmit() for
+        // the 9 documented cases that fall through to javac.
+        // Skip when Lambda persistence is enabled — persistence requires javac's classfile
+        // format for ASM-based deduplication. This will be unified when ASM is removed.
+        if (!LambdaRegistry.PERSISTENCE_ENABLED && ClassfileEvaluatorEmitter.canEmit(transpiled)) {
             try {
                 byte[] bytecode = ClassfileEvaluatorEmitter.emit(info, transpiled);
                 Evaluator<T, K, R> evaluator = loadClassfileEmitted(bytecode, info);
@@ -91,17 +89,12 @@ public class MVELCompiler {
                 // Fall through to javac pipeline
             }
         } else if (CLASSFILE_DEBUG) {
-            if (!CLASSFILE_EMITTER_ENABLED) {
-                log.debug("Classfile emitter disabled for: {}", info.expression());
-            } else if (LambdaRegistry.PERSISTENCE_ENABLED) {
-                log.debug("Classfile emitter skipped (persistence enabled) for: {}", info.expression());
-            } else {
-                String reason = ClassfileEvaluatorEmitter.diagnoseRejection(transpiled);
-                log.debug("Classfile canEmit=false for: {} | reason: {}", info.expression(), reason);
-            }
+            String reason = ClassfileEvaluatorEmitter.diagnoseRejection(transpiled);
+            log.debug("Classfile canEmit=false for: {} | reason: {}", info.expression(), reason);
         }
 
         // Javac fallback: full pipeline (print AST → javac → bytecode)
+        // Used for the 9 documented fallback cases and any future emit-time failures.
         CompilationUnit unit = new CompilationUnitGenerator(
                 transpiled.getTranspilerContext().getParser()).createCompilationUnit(transpiled, info);
         Evaluator<T, K, R> evaluator = compileEvaluator(unit, info);
