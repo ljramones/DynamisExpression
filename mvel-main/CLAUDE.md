@@ -54,7 +54,7 @@ Expressions are compiled against one of three context types, which determines ho
 
 - **javaparser-mvel** — Custom fork of JavaParser with MVEL3-specific AST nodes (must be installed locally)
 - **ANTLR4** — Parser generator for MVEL grammar
-- **ASM** — Bytecode manipulation for lambda extraction
+- **JDK 25 Classfile API** (`java.lang.classfile`) — Primary bytecode generation (no external dependency)
 
 ## Known Limitations
 

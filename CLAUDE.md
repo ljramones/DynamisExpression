@@ -53,7 +53,7 @@ mvn clean verify                                        # CI-equivalent validati
 ### MVEL3 Transpilation Pipeline (mvel-main)
 
 ```
-MVEL source → ANTLR4 parse tree → JavaParser AST (with MVEL nodes) → rewrite to pure Java AST → Java source → javac in-memory → bytecode
+MVEL source → ANTLR4 parse tree → JavaParser AST (with MVEL nodes) → rewrite to pure Java AST → Classfile API bytecode (or javac fallback)
 ```
 
 Four stages:
@@ -61,14 +61,15 @@ Four stages:
 1. **Parse** — ANTLR4 grammar (`src/main/antlr4/.../Mvel3Parser.g4`, `Mvel3Lexer.g4`) produces parse tree.
 2. **Transpile** — `MVELTranspiler` and `Mvel3ToJavaParserVisitor` (3,333 lines) convert parse tree into JavaParser AST. `MVELToJavaRewriter` (1,614 lines) applies MVEL-specific rewrites (null-safe access, coercion, operator overloading). Supporting rewriters: `CoerceRewriter`, `OverloadRewriter`.
 3. **Generate** — `CompilationUnitGenerator` wraps transpiled AST into a Java `CompilationUnit` implementing `Evaluator<C, W, O>`.
-4. **Compile & Load** — `KieMemoryCompiler` compiles generated Java via javac. `ClassManager` manages bytecode. `LambdaRegistry` caches compiled lambdas.
+4. **Compile & Load** — Primary: `ClassfileEvaluatorEmitter` generates bytecode directly via JDK 25 Classfile API (98.6% of expressions). Fallback: `KieMemoryCompiler` compiles via javac for the 9 documented cases. `ClassManager` manages bytecode deduplication. `LambdaRegistry` caches compiled lambdas.
 
 ### Key MVEL3 Classes
 
 - **`MVEL`** — Public API with fluent builders (`map()`, `list()`, `pojo()`)
-- **`MVELCompiler`** — Orchestrates full pipeline
+- **`MVELCompiler`** — Orchestrates full pipeline (Classfile API primary, javac fallback)
 - **`MVELBuilder`** — Fluent builder: context → output type → expression/block → imports → compile
 - **`Evaluator<C, W, O>`** — Interface for generated evaluators (C=context, W=with-object, O=output)
+- **`ClassfileEvaluatorEmitter`** — JDK 25 Classfile API bytecode emitter (primary compilation path)
 
 ### Three Context Types
 

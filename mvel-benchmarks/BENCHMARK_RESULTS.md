@@ -9,26 +9,86 @@ Recorded: 2026-02-28
 - Baseline: pre-error-handling/DRL-cleanup state
 - Phase 1: Classfile API bytecode emitter for predicate expressions (javac bypass)
 - Phase 2: Boxed type auto-unboxing, bitwise/compound operators, var inference, static method calls
+- Phase 3: Control flow, string concat, POJO setters, ASM removal — Classfile API is now primary path
 
 ## Complete Baseline Comparison
 
-| Benchmark | Original | Phase 1 | Phase 2 | Delta (vs original) |
-|---|---|---|---|---|
-| evalPojoPredicate (thrpt) | 1,538 ops/us | 1,733 ops/us | 1,670 ops/us | +9% |
-| evalMapPredicate (thrpt) | 266 ops/us | 309 ops/us | 277 ops/us | +4% |
-| evalMapComplexPredicate (thrpt) | 241 ops/us | 241 ops/us | 237 ops/us | flat |
-| constructPojoContext (thrpt) | 102.83 ops/us | 102.58 ops/us | 130.74 ops/us | +27% |
-| constructMapContext (thrpt) | 37.32 ops/us | 38.10 ops/us | 44.79 ops/us | +20% |
-| constructAndEvalPojo (thrpt) | 47.99 ops/us | 97.73 ops/us | 94.16 ops/us | **+96%** * |
-| constructAndEvalMap (thrpt) | 25.75 ops/us | 24.22 ops/us | 22.82 ops/us | -11% |
-| compileSimpleExpression | 5.73 ms | **0.70 ms** | **0.71 ms** | **-88% (8.1x)** |
-| compilePredicateExpression | 5.83 ms | **0.87 ms** | **0.84 ms** | **-86% (6.9x)** |
-| compileComplexExpression | 5.77 ms | 5.78 ms | 6.22 ms | javac fallback |
-| concurrentCompile | 6.85 ms | 6.15 ms | **0.76 ms** | **-89% (9.0x)** † |
+| Benchmark | Original | Phase 1 | Phase 2 | Phase 3 | Delta (vs original) |
+|---|---|---|---|---|---|
+| evalPojoPredicate (thrpt) | 1,538 ops/us | 1,733 ops/us | 1,670 ops/us | 1,726 ops/us | +12% |
+| evalMapPredicate (thrpt) | 266 ops/us | 309 ops/us | 277 ops/us | 274 ops/us | +3% |
+| evalMapComplexPredicate (thrpt) | 241 ops/us | 241 ops/us | 237 ops/us | 243 ops/us | flat |
+| constructPojoContext (thrpt) | 102.83 ops/us | 102.58 ops/us | 130.74 ops/us | 128.88 ops/us | +25% |
+| constructMapContext (thrpt) | 37.32 ops/us | 38.10 ops/us | 44.79 ops/us | 44.35 ops/us | +19% |
+| constructAndEvalPojo (thrpt) | 47.99 ops/us | 97.73 ops/us | 94.16 ops/us | 93.68 ops/us | **+95%** * |
+| constructAndEvalMap (thrpt) | 25.75 ops/us | 24.22 ops/us | 22.82 ops/us | 22.57 ops/us | -12% |
+| compileSimpleExpression | 5.73 ms | **0.70 ms** | **0.71 ms** | **0.72 ms** | **-87% (8.0x)** |
+| compilePredicateExpression | 5.83 ms | **0.87 ms** | **0.84 ms** | **0.85 ms** | **-85% (6.9x)** |
+| compileComplexExpression | 5.77 ms | 5.78 ms | 6.22 ms | **0.77 ms** | **-87% (7.5x)** ‡ |
+| concurrentCompile | 6.85 ms | 6.15 ms | **0.76 ms** | **0.76 ms** | **-89% (9.0x)** † |
+
+‡ Phase 3 added control flow support (if/else, assignment blocks, return statements), moving the complex expression from javac fallback to the Classfile API path. This is the headline Phase 3 result: **6.22ms → 0.77ms (8.1x speedup)**.
 
 † Phase 2 auto-unboxing moved boxed-type expressions from javac to the Classfile API path, eliminating javac from the concurrent benchmark entirely. See "Phase 2: Concurrent Compilation Breakthrough" below.
 
 \* Original constructAndEvalPojo measurement included `"Faction" + rng.nextInt()` string concatenation in the hot loop, which accounted for 74% of samples. See "Benchmark Fix" below.
+
+## Phase 3: Full Classfile API Promotion
+
+Phase 3 made the Classfile API emitter the primary compilation path and eliminated the ASM dependency entirely. The javac pipeline is retained only as a fallback for 9 documented permanent cases.
+
+### What Phase 3 delivered
+
+- **Control flow**: `if`/`else` statements, `with` blocks
+- **String concatenation**: StringBuilder-based concat with mixed types (int, boolean, String, Object)
+- **Primitive casts**: `(int)x`, `(double)y`, `(long)z` between all primitive types
+- **POJO setter helper methods**: `__contexta(__context, a = 4)` pattern for property write-back
+- **BigDecimal support**: Literals (`0B`), arithmetic via `.add()`/`.subtract()`/`.multiply()`/`.divide()`
+- **General comparisons**: `>=`, `<=`, `!=` (not just `>`, `<`, `==`)
+- **Type widening**: `int` → `long`, `int` → `double` in binary expressions
+- **Expression statements**: Void method calls, assignments as statements
+- **ASM removal**: `MethodByteCodeExtractor` rewritten using JDK 25 Classfile API. Zero external bytecode dependencies.
+
+### Coverage progression
+
+| Metric | Phase 1 | Phase 2 | Phase 3 |
+|---|---|---|---|
+| canEmit=YES (of test compile calls) | 50 (7.6%) | 649 (98.0%) | 649 (98.6%) |
+| canEmit=NO (javac fallback) | 612 (92.4%) | 13 (2.0%) | 9 (1.4%) |
+| External bytecode deps | ASM 9.7.1 | ASM 9.7.1 | **None** |
+
+### The 9 permanent javac fallbacks
+
+These are documented in `ClassfileEvaluatorEmitter.canEmit()` javadoc:
+
+1. **Scope-less free-function calls** — DRL static import pattern (e.g., `isEven(1)`)
+2. **List generic erasure** — `List.get()` returns Object, chained methods need type solver
+3. **BigDecimal + var compound assignment** — var-inferred `.add()` resolution
+4. **Non-string binary concat operands** — `obj1 + obj2` where neither is String
+5. **Multi-level nested method chains** — `a.b().c().d()` deeper than 2 levels
+6. **Lambda/functional expressions** — `stream().map(x -> ...)` patterns
+7. **Array creation/access** — `new int[]{1,2,3}`, `arr[i]`
+8. **Try-catch/throw** — Exception handling constructs
+9. **Enhanced for-loop** — `for (var x : collection)` iteration
+
+### compileComplexExpression: the headline result
+
+The complex expression benchmark (`a = a + 1; b = b * 2; return a + b;`) was the last benchmarked expression stuck on the javac path. Phase 3's control flow and assignment support moved it to the Classfile API:
+
+| Benchmark | Phase 2 (javac) | Phase 3 (Classfile API) | Speedup |
+|---|---|---|---|
+| compileComplexExpression | 6.22 ms | **0.77 ms** | **8.1x** |
+
+All four compilation benchmarks now use the Classfile API path. javac is only invoked for the 9 permanent fallback categories.
+
+### Compilation cost summary (all phases)
+
+| Benchmark | javac (baseline) | Phase 1 | Phase 2 | Phase 3 |
+|---|---|---|---|---|
+| compileSimpleExpression (`a + b`) | 5.48 ms | 0.70 ms | 0.71 ms | 0.72 ms |
+| compilePredicateExpression (`influence > 50 && !atWar && stability > 30`) | 5.60 ms | 0.87 ms | 0.84 ms | 0.85 ms |
+| compileComplexExpression (block with assignments) | 5.58 ms | 5.78 ms | 6.22 ms | **0.77 ms** |
+| concurrentCompileDifferentExpressions | 6.85 ms | 6.15 ms | **0.76 ms** | **0.76 ms** |
 
 ## Benchmark Fix: String Concatenation in Hot Loop
 
@@ -48,7 +108,7 @@ POJO predicate eval at 0.001 us (1 nanosecond) is single-digit CPU instruction c
 
 ### evalPojoPredicate Throughput Variance
 
-Variance of ±910 ops/us in throughput mode. This is benchmark harness interaction at nanosecond scale — latency mode shows 0.001 ±0.001 which is at measurement resolution. Not a production concern.
+Variance of ±416 ops/us in throughput mode. This is benchmark harness interaction at nanosecond scale — latency mode shows 0.001 ±0.001 which is at measurement resolution. Not a production concern.
 
 ## Phase 2: Concurrent Compilation Breakthrough
 
@@ -62,52 +122,13 @@ Phase 2's auto-unboxing support means those expressions now emit directly throug
 
 This validates that boxed-type auto-unboxing was the correct Phase 2 priority. The audit showed 80% of javac fallbacks were boxed types — removing that gate moved virtually all concurrent expressions to the fast path.
 
-## Classfile API Compilation Speedup
-
-The Classfile API bytecode emitter (`java.lang.classfile`, JEP 484) replaces the javac in-memory compilation pipeline with direct bytecode generation. `MVELCompiler.compile()` tries the Classfile API path first and falls back to javac for unsupported expressions.
-
-### Phase 1 vs Phase 2 Coverage
-
-| Metric | Phase 1 | Phase 2 |
-|---|---|---|
-| canEmit=YES (of 662 compile calls) | 50 (7.6%) | **649 (98.0%)** |
-| canEmit=NO (javac fallback) | 612 (92.4%) | **13 (2.0%)** |
-
-### What Phase 2 added
-
-- **Auto-unboxing**: `Integer` → `int`, `Double` → `double`, `Long` → `long`, etc. in variable declarations. MVEL's `getTypeMap()` produces boxed types from Java values; the emitter now unboxes at extraction and operates on primitives throughout.
-- **Bitwise operators**: `&`, `|`, `^`, `<<`, `>>`, `>>>`, `~`
-- **Compound assignments**: `+=`, `-=`, `*=`, `/=`, `%=`, `<<=`, `>>=`, `>>>=`, `&=`, `|=`, `^=`
-- **`var` type inference**: Resolves `var` declarations from initializer expression types
-- **POJO/reference-type variables**: Allocates reference slots for extracted POJO objects
-- **Static method calls**: `java.lang.Math.*` (sin, cos, pow, ceil, floor, etc.), `org.mvel3.MVEL.putMap/setList`
-- **POJO instance methods with arguments**: Setter/mutator calls on extracted objects
-
-### What still falls back to javac (13 of 662 = 2%)
-
-- Control flow (`if`/`else`, `with` blocks) — 4 cases
-- BigDecimal operations (`.add()`, `.subtract()` with `MathContext`) — 3 cases
-- Free-function calls without scope (`isEven(1)`, `staticMethod(1)`) — 3 cases
-- POJO field access (`foo.nonExistentProperty`) — 1 case (error test)
-- POJO setter with assignment argument (`__contexta(__context, a = 4)`) — 1 case
-- String concatenation with non-string operands — 1 case
-
-### Compilation cost breakdown
-
-| Benchmark | javac (baseline) | Phase 1 | Phase 2 |
-|---|---|---|---|
-| compileSimpleExpression (`a + b`) | 5.48 ms | 0.70 ms | 0.71 ms |
-| compilePredicateExpression (`influence > 50 && !atWar && stability > 30`) | 5.60 ms | 0.87 ms | 0.84 ms |
-| compileComplexExpression (block with assignments) | 5.58 ms | 5.78 ms | 6.22 ms |
-| concurrentCompileDifferentExpressions | 6.85 ms | 6.15 ms | **0.76 ms** |
-
-### Where the remaining 0.7ms goes
+## Where the remaining 0.7ms goes
 
 The Classfile API eliminated javac (~4.8ms) but the remaining ~0.7ms is the transpilation pipeline: ANTLR4 parse → JavaParser AST construction → MVELToJavaRewriter pass → `canEmit()` check → Classfile API bytecode emission. The ANTLR parse and AST rewrite are the dominant remaining costs.
 
 ### Startup impact
 
-At 100 predicate expressions during DynamisScripting startup, compilation cost drops from 550ms (100 × 5.5ms) to 70ms (100 × 0.7ms) — a **480ms reduction** in engine startup time. Concurrent compilation of the same 100 expressions now completes in ~76ms total (was ~615ms in Phase 1).
+At 100 expressions during DynamisScripting startup, compilation cost drops from 550ms (100 × 5.5ms) to 77ms (100 × 0.77ms) — a **473ms reduction** in engine startup time. This holds for all expression types now, not just simple predicates.
 
 ## Previous Compilation Cost Analysis
 
@@ -119,5 +140,5 @@ Latency data is almost too good to need GC work at the evaluation layer — 1ns 
 
 ## Recommended Next Steps
 
-1. **Phase 3**: Full javac elimination — remove KieMemoryCompiler, remove ASM dependency, unify ClassManager with Classfile API loading. The 13 remaining fallback cases (2%) need control flow support or can be deferred.
-2. GC/context pooling work follows after compilation pipeline is finalized.
+1. **Error handling**: Exception hierarchy and call-site fixes (see error handling plan)
+2. GC/context pooling work follows after error handling is finalized
