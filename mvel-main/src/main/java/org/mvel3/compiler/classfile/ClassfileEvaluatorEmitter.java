@@ -234,6 +234,11 @@ public final class ClassfileEvaluatorEmitter {
         // If the expression left a primitive on the stack, box it to match the return type.
         TypeKind exprKind = inferTypeKind(expr, slots, params);
         if (exprKind == TypeKind.REFERENCE) {
+            // If the method return type is more specific than Object, checkcast to match.
+            // This handles cases like MVEL.setList() returning Object when return type is Integer.
+            if (outClass != null && outClass != Object.class && !outClass.isPrimitive()) {
+                code.checkcast(ClassfileTypeUtils.classDescFromName(outClass.getName()));
+            }
             code.areturn();
         } else {
             // Box using the method's declared return type, not the expression type.
@@ -317,9 +322,18 @@ public final class ClassfileEvaluatorEmitter {
         } else if (expr instanceof AssignExpr ae) {
             emitAssignExpr(code, ae, slots, params);
         } else {
-            // Expression statement whose value is discarded
+            // Expression statement whose value is discarded (e.g., MVEL.putMap(...), method calls)
             emitExpression(code, expr, slots, params);
-            // pop the result if needed — for now, most expression stmts are var decls
+            // Pop the result off the stack since the expression result is not used.
+            // Void-returning methods leave nothing on the stack — skip the pop.
+            if (!isVoidMethodCall(expr, slots, params)) {
+                TypeKind kind = inferTypeKind(expr, slots, params);
+                if (kind == TypeKind.LONG || kind == TypeKind.DOUBLE) {
+                    code.pop2();
+                } else {
+                    code.pop();
+                }
+            }
         }
     }
 
@@ -517,12 +531,62 @@ public final class ClassfileEvaluatorEmitter {
 
         Type targetType = ce.getType();
         if (targetType.isPrimitiveType()) {
-            // Unbox: assume stack has boxed type, checkcast + unbox
-            String boxedName = boxedNameForPrimitive(targetType.asPrimitiveType());
-            ClassfileTypeUtils.emitCheckcastAndUnbox(code, boxedName);
+            TypeKind sourceKind = inferTypeKind(ce.getExpression(), slots, params);
+            TypeKind targetKind = ClassfileTypeUtils.toTypeKind(targetType);
+
+            if (sourceKind == TypeKind.REFERENCE) {
+                // Unbox: stack has boxed type (e.g., Object from Map.get), checkcast + unbox
+                String boxedName = boxedNameForPrimitive(targetType.asPrimitiveType());
+                ClassfileTypeUtils.emitCheckcastAndUnbox(code, boxedName);
+            } else {
+                // Primitive-to-primitive cast (e.g., (int) Math.pow(5,2) → d2i)
+                emitPrimitiveCast(code, sourceKind, targetKind);
+            }
         } else {
             // Reference cast
             code.checkcast(ClassfileTypeUtils.toClassDesc(targetType));
+        }
+    }
+
+    /**
+     * Emit a primitive-to-primitive narrowing or widening conversion.
+     */
+    private static void emitPrimitiveCast(CodeBuilder code, TypeKind from, TypeKind to) {
+        if (from == to) return;
+        switch (from) {
+            case DOUBLE -> {
+                switch (to) {
+                    case INT, BOOLEAN, BYTE, SHORT, CHAR -> code.d2i();
+                    case LONG -> code.d2l();
+                    case FLOAT -> code.d2f();
+                    default -> {}
+                }
+            }
+            case FLOAT -> {
+                switch (to) {
+                    case INT, BOOLEAN, BYTE, SHORT, CHAR -> code.f2i();
+                    case LONG -> code.f2l();
+                    case DOUBLE -> code.f2d();
+                    default -> {}
+                }
+            }
+            case LONG -> {
+                switch (to) {
+                    case INT, BOOLEAN, BYTE, SHORT, CHAR -> code.l2i();
+                    case FLOAT -> code.l2f();
+                    case DOUBLE -> code.l2d();
+                    default -> {}
+                }
+            }
+            case INT, BOOLEAN, BYTE, SHORT, CHAR -> {
+                switch (to) {
+                    case LONG -> code.i2l();
+                    case FLOAT -> code.i2f();
+                    case DOUBLE -> code.i2d();
+                    default -> {}
+                }
+            }
+            default -> {}
         }
     }
 
@@ -594,6 +658,17 @@ public final class ClassfileEvaluatorEmitter {
         if (isComparisonOp(op)) {
             emitComparison(code, be, slots, params);
             return;
+        }
+
+        // String concatenation: "foo" + bar or bar + "foo"
+        if (op == BinaryExpr.Operator.PLUS) {
+            TypeKind leftKind = inferTypeKind(be.getLeft(), slots, params);
+            TypeKind rightKind = inferTypeKind(be.getRight(), slots, params);
+            if (isStringExpression(be.getLeft(), slots, params)
+                    || isStringExpression(be.getRight(), slots, params)) {
+                emitStringConcat(code, be, slots, params);
+                return;
+            }
         }
 
         // Arithmetic/bitwise operators: determine the widened type, emit with widening
@@ -751,6 +826,114 @@ public final class ClassfileEvaluatorEmitter {
             case NOT_EQUALS -> code.ifne(trueLabel);
             default -> throw new IllegalStateException("Not a comparison: " + op);
         }
+    }
+
+    // ── String concatenation emission ─────────────────────────────────────
+
+    /**
+     * Check if an expression evaluates to a String type.
+     */
+    private static <C, W, O> boolean isStringExpression(Expression expr, LocalSlotTable slots,
+                                                         CompilerParameters<C, W, O> params) {
+        return switch (expr) {
+            case StringLiteralExpr _ -> true;
+            case NameExpr ne -> {
+                if (slots.contains(ne.getNameAsString())) {
+                    Type t = slots.type(ne.getNameAsString());
+                    yield isStringType(t);
+                }
+                yield false;
+            }
+            case BinaryExpr be when be.getOperator() == BinaryExpr.Operator.PLUS ->
+                    isStringExpression(be.getLeft(), slots, params)
+                    || isStringExpression(be.getRight(), slots, params);
+            case MethodCallExpr mce -> {
+                // Check if method returns String via reflection
+                Class<?> retType = resolveMethodReturnClass(mce, slots, params);
+                yield retType == String.class;
+            }
+            case EnclosedExpr ee -> isStringExpression(ee.getInner(), slots, params);
+            default -> false;
+        };
+    }
+
+    /**
+     * Resolve the return type Class of a method call expression.
+     */
+    private static <C, W, O> Class<?> resolveMethodReturnClass(MethodCallExpr mce, LocalSlotTable slots,
+                                                                 CompilerParameters<C, W, O> params) {
+        if (mce.getScope().isEmpty()) return null;
+        Expression scope = mce.getScope().get();
+        Class<?> scopeClass = resolveExpressionType(scope, slots, params);
+        if (scopeClass != null) {
+            Method m = findMethodByNameAndArgCount(scopeClass, mce.getNameAsString(), mce.getArguments().size());
+            if (m != null) return m.getReturnType();
+        }
+        return null;
+    }
+
+    /**
+     * Emit string concatenation using StringBuilder.
+     * Flattens nested PLUS chains into a single StringBuilder sequence.
+     */
+    private static <C, W, O> void emitStringConcat(
+            CodeBuilder code,
+            BinaryExpr be,
+            LocalSlotTable slots,
+            CompilerParameters<C, W, O> params) {
+
+        ClassDesc CD_StringBuilder = ClassDesc.of("java.lang.StringBuilder");
+
+        // new StringBuilder()
+        code.new_(CD_StringBuilder);
+        code.dup();
+        code.invokespecial(CD_StringBuilder, INIT_NAME, MTD_void);
+
+        // Flatten and append all operands
+        flattenAndAppend(code, be, slots, params, CD_StringBuilder);
+
+        // toString()
+        code.invokevirtual(CD_StringBuilder, "toString",
+                MethodTypeDesc.of(CD_String));
+    }
+
+    /**
+     * Recursively flatten nested string PLUS chains and emit StringBuilder.append() for each operand.
+     */
+    private static <C, W, O> void flattenAndAppend(
+            CodeBuilder code,
+            Expression expr,
+            LocalSlotTable slots,
+            CompilerParameters<C, W, O> params,
+            ClassDesc CD_StringBuilder) {
+
+        if (expr instanceof BinaryExpr be && be.getOperator() == BinaryExpr.Operator.PLUS
+                && (isStringExpression(be.getLeft(), slots, params)
+                    || isStringExpression(be.getRight(), slots, params))) {
+            // Recursive: flatten left and right
+            flattenAndAppend(code, be.getLeft(), slots, params, CD_StringBuilder);
+            flattenAndAppend(code, be.getRight(), slots, params, CD_StringBuilder);
+        } else {
+            // Leaf: emit the expression and append to StringBuilder
+            emitExpression(code, expr, slots, params);
+            TypeKind kind = inferTypeKind(expr, slots, params);
+            emitStringBuilderAppend(code, kind, CD_StringBuilder);
+        }
+    }
+
+    /**
+     * Emit the appropriate StringBuilder.append() call for the value on the stack.
+     */
+    private static void emitStringBuilderAppend(CodeBuilder code, TypeKind kind, ClassDesc CD_StringBuilder) {
+        ClassDesc argDesc = switch (kind) {
+            case INT, BOOLEAN, BYTE, SHORT, CHAR -> CD_int;
+            case LONG -> CD_long;
+            case DOUBLE -> CD_double;
+            case FLOAT -> CD_float;
+            default -> CD_Object;
+        };
+        code.invokevirtual(CD_StringBuilder, "append",
+                MethodTypeDesc.of(CD_StringBuilder, argDesc));
     }
 
     // ── Type widening helpers ─────────────────────────────────────────────
@@ -1349,6 +1532,24 @@ public final class ClassfileEvaluatorEmitter {
     }
 
     /**
+     * Check if an expression is a method call that returns void.
+     * Used to avoid popping when there's nothing on the stack.
+     */
+    private static <C, W, O> boolean isVoidMethodCall(Expression expr, LocalSlotTable slots,
+                                                        CompilerParameters<C, W, O> params) {
+        if (!(expr instanceof MethodCallExpr mce)) return false;
+        if (mce.getScope().isEmpty()) return false;
+        Expression scope = mce.getScope().get();
+        Class<?> scopeClass = null;
+        if (scope instanceof NameExpr scopeName) {
+            scopeClass = resolveVariableClassWithLocals(scopeName.getNameAsString(), slots, params);
+        }
+        if (scopeClass == null) return false;
+        Method m = findMethodByNameAndArgCount(scopeClass, mce.getNameAsString(), mce.getArguments().size());
+        return m != null && m.getReturnType() == void.class;
+    }
+
+    /**
      * Emit a POJO method call using reflection to resolve the actual method descriptor.
      * This ensures the invokevirtual descriptor matches the real method signature.
      */
@@ -1834,6 +2035,12 @@ public final class ClassfileEvaluatorEmitter {
                         || op == BinaryExpr.Operator.GREATER_EQUALS || op == BinaryExpr.Operator.LESS_EQUALS
                         || op == BinaryExpr.Operator.EQUALS || op == BinaryExpr.Operator.NOT_EQUALS) {
                     yield TypeKind.BOOLEAN;
+                }
+                // String concatenation: PLUS with any string operand yields REFERENCE (String)
+                if (op == BinaryExpr.Operator.PLUS
+                        && (isStringExpression(be.getLeft(), slots, params)
+                            || isStringExpression(be.getRight(), slots, params))) {
+                    yield TypeKind.REFERENCE;
                 }
                 // Arithmetic/bitwise: return the widened type of both operands
                 TypeKind left = inferTypeKind(be.getLeft(), slots, params);
