@@ -14,11 +14,13 @@ import org.mvel3.transpiler.context.Declaration;
 
 import java.lang.classfile.ClassFile;
 import java.lang.classfile.CodeBuilder;
+import java.lang.classfile.Opcode;
 import java.lang.classfile.TypeKind;
 import java.lang.constant.ClassDesc;
 import java.lang.constant.MethodTypeDesc;
 import java.lang.reflect.AccessFlag;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.List;
 import java.util.Set;
 
@@ -39,6 +41,8 @@ public final class ClassfileEvaluatorEmitter {
     private static final ClassDesc CD_Evaluator = ClassDesc.of("org.mvel3.Evaluator");
     private static final ClassDesc CD_Map = ClassDesc.of("java.util.Map");
     private static final ClassDesc CD_List = ClassDesc.of("java.util.List");
+    private static final ClassDesc CD_BigDecimal = ClassDesc.of("java.math.BigDecimal");
+    private static final ClassDesc CD_MathContext = ClassDesc.of("java.math.MathContext");
 
     /**
      * Check whether the transpiled method body can be emitted directly as bytecode.
@@ -418,6 +422,8 @@ public final class ClassfileEvaluatorEmitter {
             case BinaryExpr be -> emitBinaryExpr(code, be, slots, params);
             case MethodCallExpr mce -> emitMethodCallExpr(code, mce, slots, params);
             case FieldAccessExpr fae -> emitFieldAccessExpr(code, fae, slots, params);
+            case ObjectCreationExpr oce -> emitObjectCreationExpr(code, oce, slots, params);
+            case AssignExpr ae -> emitAssignExprAsExpression(code, ae, slots, params);
             default -> throw new UnsupportedOperationException(
                     "Unsupported expression type: " + expr.getClass().getSimpleName()
                     + " — " + expr);
@@ -584,31 +590,34 @@ public final class ClassfileEvaluatorEmitter {
             return;
         }
 
-        // Comparison operators on int: >, <, >=, <=, ==, !=
-        if (isIntComparison(be, slots, params)) {
-            emitIntComparison(code, be, slots, params);
+        // Comparison operators (==, !=, >, <, >=, <=) — supports int, long, double, float
+        if (isComparisonOp(op)) {
+            emitComparison(code, be, slots, params);
             return;
         }
 
-        // Arithmetic operators
-        emitExpression(code, be.getLeft(), slots, params);
-        emitExpression(code, be.getRight(), slots, params);
-
+        // Arithmetic/bitwise operators: determine the widened type, emit with widening
         TypeKind leftKind = inferTypeKind(be.getLeft(), slots, params);
         TypeKind rightKind = inferTypeKind(be.getRight(), slots, params);
+        TypeKind opKind = widenTypeKind(leftKind, rightKind);
+
+        emitExpression(code, be.getLeft(), slots, params);
+        emitTypeWidening(code, leftKind, opKind);
+        emitExpression(code, be.getRight(), slots, params);
+        emitTypeWidening(code, rightKind, opKind);
 
         switch (op) {
-            case PLUS -> emitAdd(code, leftKind);
-            case MINUS -> emitSub(code, leftKind);
-            case MULTIPLY -> emitMul(code, leftKind);
-            case DIVIDE -> emitDiv(code, leftKind);
-            case REMAINDER -> emitRem(code, leftKind);
-            case BINARY_AND -> emitBitwiseAnd(code, leftKind);
-            case BINARY_OR -> emitBitwiseOr(code, leftKind);
-            case XOR -> emitBitwiseXor(code, leftKind);
-            case LEFT_SHIFT -> emitShl(code, leftKind);
-            case SIGNED_RIGHT_SHIFT -> emitShr(code, leftKind);
-            case UNSIGNED_RIGHT_SHIFT -> emitUshr(code, leftKind);
+            case PLUS -> emitAdd(code, opKind);
+            case MINUS -> emitSub(code, opKind);
+            case MULTIPLY -> emitMul(code, opKind);
+            case DIVIDE -> emitDiv(code, opKind);
+            case REMAINDER -> emitRem(code, opKind);
+            case BINARY_AND -> emitBitwiseAnd(code, opKind);
+            case BINARY_OR -> emitBitwiseOr(code, opKind);
+            case XOR -> emitBitwiseXor(code, opKind);
+            case LEFT_SHIFT -> emitShl(code, opKind);
+            case SIGNED_RIGHT_SHIFT -> emitShr(code, opKind);
+            case UNSIGNED_RIGHT_SHIFT -> emitUshr(code, opKind);
             default -> throw new UnsupportedOperationException(
                     "Unsupported binary operator: " + op);
         }
@@ -656,36 +665,65 @@ public final class ClassfileEvaluatorEmitter {
         code.labelBinding(endLabel);
     }
 
-    private static <C, W, O> boolean isIntComparison(BinaryExpr be, LocalSlotTable slots,
-                                                      CompilerParameters<C, W, O> params) {
-        TypeKind leftKind = inferTypeKind(be.getLeft(), slots, params);
-        if (leftKind != TypeKind.INT && leftKind != TypeKind.BOOLEAN) return false;
-        return switch (be.getOperator()) {
+    private static boolean isComparisonOp(BinaryExpr.Operator op) {
+        return switch (op) {
             case GREATER, LESS, GREATER_EQUALS, LESS_EQUALS, EQUALS, NOT_EQUALS -> true;
             default -> false;
         };
     }
 
-    private static <C, W, O> void emitIntComparison(
+    /**
+     * Emit a comparison expression for any numeric type (int, long, double, float).
+     * For int: uses if_icmpXX instructions directly.
+     * For long/double/float: emits lcmp/dcmpg/fcmpg first, then ifeq/ifne/etc.
+     */
+    private static <C, W, O> void emitComparison(
             CodeBuilder code,
             BinaryExpr be,
             LocalSlotTable slots,
             CompilerParameters<C, W, O> params) {
 
+        TypeKind leftKind = inferTypeKind(be.getLeft(), slots, params);
+        TypeKind rightKind = inferTypeKind(be.getRight(), slots, params);
+        TypeKind cmpKind = widenTypeKind(leftKind, rightKind);
+
         var trueLabel = code.newLabel();
         var endLabel = code.newLabel();
 
         emitExpression(code, be.getLeft(), slots, params);
+        emitTypeWidening(code, leftKind, cmpKind);
         emitExpression(code, be.getRight(), slots, params);
+        emitTypeWidening(code, rightKind, cmpKind);
 
-        switch (be.getOperator()) {
-            case GREATER -> code.if_icmpgt(trueLabel);
-            case LESS -> code.if_icmplt(trueLabel);
-            case GREATER_EQUALS -> code.if_icmpge(trueLabel);
-            case LESS_EQUALS -> code.if_icmple(trueLabel);
-            case EQUALS -> code.if_icmpeq(trueLabel);
-            case NOT_EQUALS -> code.if_icmpne(trueLabel);
-            default -> throw new IllegalStateException("Not a comparison: " + be.getOperator());
+        switch (cmpKind) {
+            case INT, BOOLEAN -> {
+                // Direct int comparison with if_icmpXX
+                switch (be.getOperator()) {
+                    case GREATER -> code.if_icmpgt(trueLabel);
+                    case LESS -> code.if_icmplt(trueLabel);
+                    case GREATER_EQUALS -> code.if_icmpge(trueLabel);
+                    case LESS_EQUALS -> code.if_icmple(trueLabel);
+                    case EQUALS -> code.if_icmpeq(trueLabel);
+                    case NOT_EQUALS -> code.if_icmpne(trueLabel);
+                    default -> throw new IllegalStateException("Not a comparison: " + be.getOperator());
+                }
+            }
+            case LONG -> {
+                // lcmp pushes -1/0/+1, then branch on that int
+                code.lcmp();
+                emitIntBranchForComparison(code, be.getOperator(), trueLabel);
+            }
+            case DOUBLE -> {
+                // dcmpg for NaN safety (NaN produces 1, so < returns false correctly)
+                code.dcmpg();
+                emitIntBranchForComparison(code, be.getOperator(), trueLabel);
+            }
+            case FLOAT -> {
+                code.fcmpg();
+                emitIntBranchForComparison(code, be.getOperator(), trueLabel);
+            }
+            default -> throw new UnsupportedOperationException(
+                    "Cannot compare type: " + cmpKind);
         }
 
         code.iconst_0();               // false
@@ -695,6 +733,66 @@ public final class ClassfileEvaluatorEmitter {
         code.iconst_1();               // true
 
         code.labelBinding(endLabel);
+    }
+
+    /**
+     * After lcmp/dcmpg/fcmpg, the stack has int -1/0/+1.
+     * Emit the appropriate branch for the comparison operator.
+     */
+    private static void emitIntBranchForComparison(CodeBuilder code,
+                                                    BinaryExpr.Operator op,
+                                                    java.lang.classfile.Label trueLabel) {
+        switch (op) {
+            case GREATER -> code.ifgt(trueLabel);
+            case LESS -> code.iflt(trueLabel);
+            case GREATER_EQUALS -> code.ifge(trueLabel);
+            case LESS_EQUALS -> code.ifle(trueLabel);
+            case EQUALS -> code.ifeq(trueLabel);
+            case NOT_EQUALS -> code.ifne(trueLabel);
+            default -> throw new IllegalStateException("Not a comparison: " + op);
+        }
+    }
+
+    // ── Type widening helpers ─────────────────────────────────────────────
+
+    /**
+     * Determine the wider TypeKind for binary operations between two types.
+     * Rules: double > float > long > int (byte/short/char/boolean widen to int).
+     */
+    private static TypeKind widenTypeKind(TypeKind left, TypeKind right) {
+        if (left == TypeKind.DOUBLE || right == TypeKind.DOUBLE) return TypeKind.DOUBLE;
+        if (left == TypeKind.FLOAT || right == TypeKind.FLOAT) return TypeKind.FLOAT;
+        if (left == TypeKind.LONG || right == TypeKind.LONG) return TypeKind.LONG;
+        return TypeKind.INT;
+    }
+
+    /**
+     * Emit a widening conversion from one primitive type to another.
+     * No-op if the types are the same.
+     */
+    private static void emitTypeWidening(CodeBuilder code, TypeKind from, TypeKind to) {
+        if (from == to) return;
+        switch (from) {
+            case INT, BOOLEAN, BYTE, CHAR, SHORT -> {
+                switch (to) {
+                    case LONG -> code.i2l();
+                    case FLOAT -> code.i2f();
+                    case DOUBLE -> code.i2d();
+                    default -> {}
+                }
+            }
+            case LONG -> {
+                switch (to) {
+                    case FLOAT -> code.l2f();
+                    case DOUBLE -> code.l2d();
+                    default -> {}
+                }
+            }
+            case FLOAT -> {
+                if (to == TypeKind.DOUBLE) code.f2d();
+            }
+            default -> {}
+        }
     }
 
     // ── Arithmetic helpers ────────────────────────────────────────────────
@@ -852,18 +950,37 @@ public final class ClassfileEvaluatorEmitter {
             return;
         }
 
+        // Static method calls on BigDecimal/BigInteger (valueOf, etc.)
+        if (mce.getScope().isPresent() && isStaticBigDecimalScope(mce.getScope().get())) {
+            emitBigDecimalStaticCall(code, mce, slots, params);
+            return;
+        }
+
+        // Static method calls on known JDK classes (Integer.rotateLeft, Double.parseDouble, etc.)
+        if (mce.getScope().isPresent() && isStaticKnownClassScope(mce.getScope().get())) {
+            emitKnownClassStaticCall(code, mce, slots, params);
+            return;
+        }
+
         // POJO instance method call: scope.methodName(args...)
         // Use reflection to resolve the actual method descriptor.
         if (mce.getScope().isPresent()) {
             Expression scope = mce.getScope().get();
             if (scope instanceof NameExpr scopeName && slots.contains(scopeName.getNameAsString())) {
-                Class<?> scopeClass = resolveVariableClass(scopeName.getNameAsString(), params);
+                Class<?> scopeClass = resolveVariableClassWithLocals(scopeName.getNameAsString(), slots, params);
                 if (scopeClass != null) {
                     emitReflectedMethodCall(code, mce, scopeClass, scopeName, slots, params);
                     return;
                 }
                 // Fallback: no class info, use heuristic-based emission
                 emitHeuristicMethodCall(code, mce, scopeName, methodName, slots, params);
+                return;
+            }
+
+            // Chained method call: scope is itself a MethodCallExpr (e.g., _this.getSalary().add(...))
+            Class<?> scopeReturnClass = resolveExpressionType(scope, slots, params);
+            if (scopeReturnClass != null) {
+                emitChainedMethodCall(code, mce, scope, scopeReturnClass, slots, params);
                 return;
             }
         }
@@ -952,6 +1069,227 @@ public final class ClassfileEvaluatorEmitter {
         }
     }
 
+    // ── BigDecimal / BigInteger static method emission ─────────────────────
+
+    /**
+     * Emit a static method call on BigDecimal or BigInteger (e.g., BigDecimal.valueOf(10)).
+     */
+    private static <C, W, O> void emitBigDecimalStaticCall(
+            CodeBuilder code,
+            MethodCallExpr mce,
+            LocalSlotTable slots,
+            CompilerParameters<C, W, O> params) {
+
+        Expression scope = mce.getScope().get();
+        String className = scope instanceof NameExpr ne ? ne.getNameAsString() : scope.toString();
+        boolean isBigInteger = className.contains("BigInteger");
+        ClassDesc targetClass = isBigInteger
+                ? ClassDesc.of("java.math.BigInteger")
+                : CD_BigDecimal;
+
+        String methodName = mce.getNameAsString();
+
+        if ("valueOf".equals(methodName) && mce.getArguments().size() == 1) {
+            Expression arg = mce.getArgument(0);
+            emitExpression(code, arg, slots, params);
+            TypeKind argKind = inferTypeKind(arg, slots, params);
+            // BigDecimal.valueOf(long) and BigInteger.valueOf(long) both take long
+            if (argKind == TypeKind.INT || argKind == TypeKind.BOOLEAN || argKind == TypeKind.BYTE
+                    || argKind == TypeKind.SHORT || argKind == TypeKind.CHAR) {
+                code.i2l();
+            }
+            code.invokestatic(targetClass, "valueOf", MethodTypeDesc.of(targetClass, CD_long));
+            return;
+        }
+
+        // Generic fallback for other static methods: use reflection
+        emitReflectedStaticCall(code, targetClass, className, mce, slots, params);
+    }
+
+    /**
+     * Emit a static method call on a known JDK class using reflection to resolve the descriptor.
+     */
+    private static <C, W, O> void emitKnownClassStaticCall(
+            CodeBuilder code,
+            MethodCallExpr mce,
+            LocalSlotTable slots,
+            CompilerParameters<C, W, O> params) {
+
+        String className = ((NameExpr) mce.getScope().get()).getNameAsString();
+        ClassDesc targetClass = ClassfileTypeUtils.classDescFromName(className);
+        emitReflectedStaticCall(code, targetClass, className, mce, slots, params);
+    }
+
+    /**
+     * Generic reflection-based static method call emitter.
+     */
+    private static <C, W, O> void emitReflectedStaticCall(
+            CodeBuilder code,
+            ClassDesc targetClassDesc,
+            String className,
+            MethodCallExpr mce,
+            LocalSlotTable slots,
+            CompilerParameters<C, W, O> params) {
+
+        String methodName = mce.getNameAsString();
+        int argCount = mce.getArguments().size();
+
+        // Resolve the class and find the static method
+        Class<?> clazz = resolveClassName(className);
+        if (clazz == null) {
+            throw new UnsupportedOperationException(
+                    "Cannot resolve class for static call: " + className + "." + methodName);
+        }
+
+        Method method = findStaticMethodByNameAndArgCount(clazz, methodName, argCount);
+        if (method == null) {
+            throw new UnsupportedOperationException(
+                    "Cannot find static method: " + className + "." + methodName + " with " + argCount + " arg(s)");
+        }
+
+        // Emit arguments with type conversion
+        Class<?>[] paramTypes = method.getParameterTypes();
+        ClassDesc[] paramDescs = new ClassDesc[paramTypes.length];
+        for (int i = 0; i < paramTypes.length; i++) {
+            paramDescs[i] = classDescForJavaClass(paramTypes[i]);
+            Expression arg = mce.getArgument(i);
+            emitExpression(code, arg, slots, params);
+            TypeKind argKind = inferTypeKind(arg, slots, params);
+            // Widen primitive if needed (e.g., int → long, int → double)
+            if (paramTypes[i].isPrimitive() && argKind != TypeKind.REFERENCE) {
+                TypeKind targetKind = typeKindForJavaClass(paramTypes[i]);
+                emitTypeWidening(code, argKind, targetKind);
+            } else if (!paramTypes[i].isPrimitive() && argKind != TypeKind.REFERENCE) {
+                // Method takes Object, we have a primitive → box it
+                ClassfileTypeUtils.emitBoxing(code, argKind);
+            }
+        }
+
+        ClassDesc returnDesc = classDescForJavaClass(method.getReturnType());
+        code.invokestatic(targetClassDesc, methodName,
+                MethodTypeDesc.of(returnDesc, paramDescs));
+    }
+
+    /**
+     * Emit a chained method call where the scope is a complex expression
+     * (e.g., _this.getSalary().add(...) where scope is the MethodCallExpr _this.getSalary()).
+     */
+    private static <C, W, O> void emitChainedMethodCall(
+            CodeBuilder code,
+            MethodCallExpr mce,
+            Expression scope,
+            Class<?> scopeReturnClass,
+            LocalSlotTable slots,
+            CompilerParameters<C, W, O> params) {
+
+        String methodName = mce.getNameAsString();
+        int argCount = mce.getArguments().size();
+
+        Method method = findMethodByNameAndArgCount(scopeReturnClass, methodName, argCount);
+        if (method == null) {
+            throw new UnsupportedOperationException(
+                    "Cannot resolve chained method: " + scopeReturnClass.getName() + "." + methodName
+                    + " with " + argCount + " arg(s)");
+        }
+
+        // Emit the scope expression — puts the receiver object on the stack
+        emitExpression(code, scope, slots, params);
+
+        ClassDesc ownerDesc = classDescForJavaClass(scopeReturnClass);
+
+        // Emit arguments with type conversion
+        Class<?>[] paramTypes = method.getParameterTypes();
+        ClassDesc[] paramDescs = new ClassDesc[paramTypes.length];
+        for (int i = 0; i < paramTypes.length; i++) {
+            paramDescs[i] = classDescForJavaClass(paramTypes[i]);
+            Expression arg = mce.getArgument(i);
+            emitExpression(code, arg, slots, params);
+            TypeKind argKind = inferTypeKind(arg, slots, params);
+            if (paramTypes[i] == Object.class && argKind != TypeKind.REFERENCE) {
+                ClassfileTypeUtils.emitBoxing(code, argKind);
+            } else if (paramTypes[i].isPrimitive() && argKind != TypeKind.REFERENCE) {
+                TypeKind targetKind = typeKindForJavaClass(paramTypes[i]);
+                emitTypeWidening(code, argKind, targetKind);
+            }
+        }
+
+        ClassDesc returnDesc = classDescForJavaClass(method.getReturnType());
+
+        // Use invokeinterface for interface types, invokevirtual for classes
+        if (scopeReturnClass.isInterface()) {
+            code.invokeinterface(ownerDesc, methodName,
+                    MethodTypeDesc.of(returnDesc, paramDescs));
+        } else {
+            code.invokevirtual(ownerDesc, methodName,
+                    MethodTypeDesc.of(returnDesc, paramDescs));
+        }
+    }
+
+    // ── Object creation emission ──────────────────────────────────────────
+
+    private static <C, W, O> void emitObjectCreationExpr(
+            CodeBuilder code,
+            ObjectCreationExpr oce,
+            LocalSlotTable slots,
+            CompilerParameters<C, W, O> params) {
+
+        String typeName = oce.getType().getNameWithScope();
+        Class<?> clazz = resolveClassName(typeName);
+        if (clazz == null) {
+            throw new UnsupportedOperationException("Cannot resolve class: " + typeName);
+        }
+
+        ClassDesc classDesc = classDescForJavaClass(clazz);
+        code.new_(classDesc);
+        code.dup();
+
+        // Find matching constructor by argument count
+        int argCount = oce.getArguments().size();
+        java.lang.reflect.Constructor<?> ctor = findConstructorByArgCount(clazz, argCount);
+        if (ctor == null) {
+            throw new UnsupportedOperationException(
+                    "Cannot find constructor for " + typeName + " with " + argCount + " arg(s)");
+        }
+
+        Class<?>[] paramTypes = ctor.getParameterTypes();
+        ClassDesc[] paramDescs = new ClassDesc[paramTypes.length];
+        for (int i = 0; i < paramTypes.length; i++) {
+            paramDescs[i] = classDescForJavaClass(paramTypes[i]);
+            Expression arg = oce.getArgument(i);
+            emitExpression(code, arg, slots, params);
+            TypeKind argKind = inferTypeKind(arg, slots, params);
+            if (!paramTypes[i].isPrimitive() && argKind != TypeKind.REFERENCE) {
+                ClassfileTypeUtils.emitBoxing(code, argKind);
+            } else if (paramTypes[i].isPrimitive() && argKind != TypeKind.REFERENCE) {
+                TypeKind targetKind = typeKindForJavaClass(paramTypes[i]);
+                emitTypeWidening(code, argKind, targetKind);
+            }
+        }
+
+        code.invokespecial(classDesc, INIT_NAME,
+                MethodTypeDesc.of(CD_void, paramDescs));
+    }
+
+    // ── AssignExpr as expression (e.g., in return stmts) ──────────────────
+
+    /**
+     * Emit an AssignExpr used as an expression (not a statement).
+     * E.g., {@code return x += 1;} — performs the assignment and leaves the result on the stack.
+     */
+    private static <C, W, O> void emitAssignExprAsExpression(
+            CodeBuilder code,
+            AssignExpr ae,
+            LocalSlotTable slots,
+            CompilerParameters<C, W, O> params) {
+
+        // Perform the assignment (same as emitAssignExpr)
+        emitAssignExpr(code, ae, slots, params);
+        // Load the result back onto the stack
+        if (ae.getTarget() instanceof NameExpr ne) {
+            slots.loadVar(code, ne.getNameAsString());
+        }
+    }
+
     // ── Field access emission ─────────────────────────────────────────────
 
     private static <C, W, O> void emitFieldAccessExpr(
@@ -960,11 +1298,17 @@ public final class ClassfileEvaluatorEmitter {
             LocalSlotTable slots,
             CompilerParameters<C, W, O> params) {
 
-        // FieldAccessExpr is used as a class-name scope for static method calls
-        // (e.g. java.lang.Math, org.mvel3.MVEL). These are NOT emitted as
-        // field loads — the parent MethodCallExpr handles the invokestatic.
-        // If we reach this point, the FieldAccessExpr is being used as a standalone
-        // expression which shouldn't happen for class-name references.
+        String full = fae.toString();
+
+        // Static field constants
+        if ("java.math.MathContext.DECIMAL128".equals(full)) {
+            code.getstatic(CD_MathContext, "DECIMAL128", CD_MathContext);
+            return;
+        }
+
+        // FieldAccessExpr is also used as a class-name scope for static method calls
+        // (e.g. java.lang.Math, org.mvel3.MVEL). Those are handled by the parent
+        // MethodCallExpr. If we reach here, it's a standalone field access.
         throw new UnsupportedOperationException(
                 "Field access not yet supported: " + fae);
     }
@@ -983,6 +1327,22 @@ public final class ClassfileEvaluatorEmitter {
         for (Declaration<?> decl : params.variableDeclarations()) {
             if (decl.name().equals(varName)) {
                 return decl.type().getClazz();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Resolve the actual Java Class for a variable, also checking local slot types.
+     */
+    private static <C, W, O> Class<?> resolveVariableClassWithLocals(
+            String varName, LocalSlotTable slots, CompilerParameters<C, W, O> params) {
+        Class<?> fromParams = resolveVariableClass(varName, params);
+        if (fromParams != null) return fromParams;
+        if (slots.contains(varName)) {
+            Type slotType = slots.type(varName);
+            if (slotType.isClassOrInterfaceType()) {
+                return resolveClassName(slotType.asClassOrInterfaceType().getNameWithScope());
             }
         }
         return null;
@@ -1039,13 +1399,14 @@ public final class ClassfileEvaluatorEmitter {
         // Build the method type descriptor
         Class<?> returnType = method.getReturnType();
         ClassDesc returnDesc = classDescForJavaClass(returnType);
-        code.invokevirtual(scopeDesc, methodName,
-                MethodTypeDesc.of(returnDesc, paramDescs));
+        MethodTypeDesc mtd = MethodTypeDesc.of(returnDesc, paramDescs);
 
-        // If the method is used as an ExpressionStmt (value discarded) and returns non-void,
-        // we need to pop the return value. But if void, nothing is on the stack.
-        // This is handled by the caller (emitExpressionStmt) — void methods leave nothing,
-        // non-void expression stmts should pop. Check if parent is ExpressionStmt.
+        // Use invokeinterface for interface types, invokevirtual for classes
+        if (scopeClass.isInterface()) {
+            code.invokeinterface(scopeDesc, methodName, mtd);
+        } else {
+            code.invokevirtual(scopeDesc, methodName, mtd);
+        }
     }
 
     /**
@@ -1098,6 +1459,97 @@ public final class ClassfileEvaluatorEmitter {
             }
         }
         return null;
+    }
+
+    /**
+     * Find a public static method on a class by name and argument count.
+     */
+    private static Method findStaticMethodByNameAndArgCount(Class<?> clazz, String methodName, int argCount) {
+        for (Method m : clazz.getMethods()) {
+            if (m.getName().equals(methodName) && m.getParameterCount() == argCount
+                    && Modifier.isStatic(m.getModifiers())) {
+                return m;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Find a public constructor by argument count.
+     */
+    private static java.lang.reflect.Constructor<?> findConstructorByArgCount(Class<?> clazz, int argCount) {
+        for (var ctor : clazz.getConstructors()) {
+            if (ctor.getParameterCount() == argCount) {
+                return ctor;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Resolve a simple or fully-qualified class name to a Class object.
+     */
+    private static Class<?> resolveClassName(String name) {
+        // Try as-is (fully qualified)
+        try { return Class.forName(name); } catch (ClassNotFoundException _) {}
+        // Try java.lang package
+        try { return Class.forName("java.lang." + name); } catch (ClassNotFoundException _) {}
+        // Try java.math package (BigDecimal, BigInteger, MathContext)
+        try { return Class.forName("java.math." + name); } catch (ClassNotFoundException _) {}
+        // Try java.util package (List, Map, etc.)
+        try { return Class.forName("java.util." + name); } catch (ClassNotFoundException _) {}
+        return null;
+    }
+
+    /**
+     * Resolve the Java Class that an expression evaluates to at runtime.
+     * Used for chained method calls where we need to know the intermediate type.
+     */
+    private static <C, W, O> Class<?> resolveExpressionType(
+            Expression expr, LocalSlotTable slots, CompilerParameters<C, W, O> params) {
+        return switch (expr) {
+            case NameExpr ne -> {
+                // Check compiler params first (context + declared variables)
+                Class<?> fromParams = resolveVariableClass(ne.getNameAsString(), params);
+                if (fromParams != null) yield fromParams;
+                // Check local slot table
+                if (slots.contains(ne.getNameAsString())) {
+                    Type slotType = slots.type(ne.getNameAsString());
+                    if (slotType.isClassOrInterfaceType()) {
+                        yield resolveClassName(slotType.asClassOrInterfaceType().getNameWithScope());
+                    }
+                }
+                yield null;
+            }
+            case MethodCallExpr mce -> {
+                if (mce.getScope().isEmpty()) yield null;
+                Expression scope = mce.getScope().get();
+                // Static method calls: resolve return type directly
+                if (isStaticBigDecimalScope(scope)) {
+                    String className = scope instanceof NameExpr ne ? ne.getNameAsString() : scope.toString();
+                    Class<?> clazz = resolveClassName(className);
+                    if (clazz != null) {
+                        Method m = findStaticMethodByNameAndArgCount(clazz, mce.getNameAsString(), mce.getArguments().size());
+                        if (m != null) yield m.getReturnType();
+                    }
+                }
+                // Instance method calls: resolve the scope type, then find the method
+                Class<?> scopeClass = resolveExpressionType(scope, slots, params);
+                if (scopeClass != null) {
+                    Method m = findMethodByNameAndArgCount(scopeClass, mce.getNameAsString(), mce.getArguments().size());
+                    if (m != null) yield m.getReturnType();
+                }
+                yield null;
+            }
+            case CastExpr ce -> {
+                Type castType = ce.getType();
+                if (castType.isClassOrInterfaceType()) {
+                    yield resolveClassName(castType.asClassOrInterfaceType().getNameWithScope());
+                }
+                yield null;
+            }
+            default -> null;
+        };
     }
 
     /**
@@ -1209,6 +1661,8 @@ public final class ClassfileEvaluatorEmitter {
             case UnaryExpr ue -> isSupportedUnary(ue);
             case BinaryExpr be -> isSupportedBinary(be);
             case MethodCallExpr mce -> isSupportedMethodCall(mce);
+            case FieldAccessExpr fae -> isSupportedFieldAccess(fae);
+            case ObjectCreationExpr oce -> isSupportedObjectCreation(oce);
             case VariableDeclarationExpr vde ->
                     vde.getVariables().stream().allMatch(v ->
                             v.getInitializer().map(ClassfileEvaluatorEmitter::isSupportedExpression).orElse(true));
@@ -1255,8 +1709,29 @@ public final class ClassfileEvaluatorEmitter {
         // Static methods on org.mvel3.MVEL (putMap, setList)
         if (isStaticMvelScope(scope)) return true;
 
-        // Instance method calls: scope must be a supported expression (variable access)
+        // Static methods on BigDecimal/BigInteger (valueOf, etc.)
+        if (isStaticBigDecimalScope(scope)) return true;
+
+        // Static methods on other known classes (Integer.rotateLeft, Double.parseDouble, etc.)
+        if (isStaticKnownClassScope(scope)) return true;
+
+        // Instance method calls: scope must be a supported expression (variable access or chained call)
         return isSupportedExpression(scope);
+    }
+
+    private static boolean isSupportedFieldAccess(FieldAccessExpr fae) {
+        String full = fae.toString();
+        // Static field constants (e.g., java.math.MathContext.DECIMAL128)
+        if ("java.math.MathContext.DECIMAL128".equals(full)) return true;
+        return false;
+    }
+
+    private static boolean isSupportedObjectCreation(ObjectCreationExpr oce) {
+        String typeName = oce.getType().getNameWithScope();
+        if ("BigDecimal".equals(typeName) || "java.math.BigDecimal".equals(typeName)) {
+            return oce.getArguments().stream().allMatch(ClassfileEvaluatorEmitter::isSupportedExpression);
+        }
+        return false;
     }
 
     private static boolean isStaticMathScope(Expression scope) {
@@ -1274,6 +1749,33 @@ public final class ClassfileEvaluatorEmitter {
         if (scope instanceof FieldAccessExpr fae) {
             String name = fae.toString();
             return "org.mvel3.MVEL".equals(name);
+        }
+        return false;
+    }
+
+    private static boolean isStaticBigDecimalScope(Expression scope) {
+        if (scope instanceof NameExpr ne) {
+            return "BigDecimal".equals(ne.getNameAsString())
+                    || "BigInteger".equals(ne.getNameAsString());
+        }
+        if (scope instanceof FieldAccessExpr fae) {
+            String name = fae.toString();
+            return "java.math.BigDecimal".equals(name) || "java.math.BigInteger".equals(name);
+        }
+        return false;
+    }
+
+    /**
+     * Recognize static method scopes for well-known JDK classes (Integer, Double, etc.).
+     * These are NameExpr references to class names that are NOT local variables.
+     */
+    private static boolean isStaticKnownClassScope(Expression scope) {
+        if (scope instanceof NameExpr ne) {
+            return switch (ne.getNameAsString()) {
+                case "Integer", "Long", "Double", "Float", "Short", "Byte",
+                     "Character", "Boolean", "String" -> true;
+                default -> false;
+            };
         }
         return false;
     }
@@ -1306,6 +1808,7 @@ public final class ClassfileEvaluatorEmitter {
                 if (slots.contains(ne.getNameAsString())) {
                     yield slots.typeKind(ne.getNameAsString());
                 }
+                // May be a class name reference (BigDecimal, Integer, etc.)
                 yield TypeKind.REFERENCE;
             }
             case EnclosedExpr ee -> inferTypeKind(ee.getInner(), slots, params);
@@ -1332,27 +1835,69 @@ public final class ClassfileEvaluatorEmitter {
                         || op == BinaryExpr.Operator.EQUALS || op == BinaryExpr.Operator.NOT_EQUALS) {
                     yield TypeKind.BOOLEAN;
                 }
-                // Bitwise and shift operations preserve the left operand type
-                yield inferTypeKind(be.getLeft(), slots, params);
+                // Arithmetic/bitwise: return the widened type of both operands
+                TypeKind left = inferTypeKind(be.getLeft(), slots, params);
+                TypeKind right = inferTypeKind(be.getRight(), slots, params);
+                yield widenTypeKind(left, right);
             }
             case MethodCallExpr mce -> {
                 // Math static calls return double
                 if (mce.getScope().isPresent() && isStaticMathScope(mce.getScope().get())) {
                     yield TypeKind.DOUBLE;
                 }
-                // Use reflection to resolve POJO method return types
-                if (params != null && mce.getScope().isPresent()
-                        && mce.getScope().get() instanceof NameExpr scopeName) {
-                    Class<?> scopeClass = resolveVariableClass(scopeName.getNameAsString(), params);
-                    if (scopeClass != null) {
-                        Method m = findMethodByNameAndArgCount(scopeClass, mce.getNameAsString(),
+                // Use reflection to resolve method return types
+                if (params != null && mce.getScope().isPresent()) {
+                    Expression scope = mce.getScope().get();
+                    // Direct variable scope: resolve via compiler params + locals
+                    if (scope instanceof NameExpr scopeName) {
+                        Class<?> scopeClass = resolveVariableClassWithLocals(scopeName.getNameAsString(), slots, params);
+                        if (scopeClass != null) {
+                            Method m = findMethodByNameAndArgCount(scopeClass, mce.getNameAsString(),
+                                                                   mce.getArguments().size());
+                            if (m != null) {
+                                yield typeKindForJavaClass(m.getReturnType());
+                            }
+                        }
+                    }
+                    // Chained calls or static methods: resolve expression type
+                    Class<?> scopeType = resolveExpressionType(scope, slots, params);
+                    if (scopeType != null) {
+                        Method m = findMethodByNameAndArgCount(scopeType, mce.getNameAsString(),
                                                                mce.getArguments().size());
                         if (m != null) {
                             yield typeKindForJavaClass(m.getReturnType());
                         }
                     }
+                    // Static BigDecimal/BigInteger methods
+                    if (isStaticBigDecimalScope(scope)) {
+                        String className = scope instanceof NameExpr ne ? ne.getNameAsString() : scope.toString();
+                        Class<?> clazz = resolveClassName(className);
+                        if (clazz != null) {
+                            Method m = findStaticMethodByNameAndArgCount(clazz, mce.getNameAsString(),
+                                                                         mce.getArguments().size());
+                            if (m != null) yield typeKindForJavaClass(m.getReturnType());
+                        }
+                    }
+                    // Known class static methods
+                    if (isStaticKnownClassScope(scope)) {
+                        String className = ((NameExpr) scope).getNameAsString();
+                        Class<?> clazz = resolveClassName(className);
+                        if (clazz != null) {
+                            Method m = findStaticMethodByNameAndArgCount(clazz, mce.getNameAsString(),
+                                                                         mce.getArguments().size());
+                            if (m != null) yield typeKindForJavaClass(m.getReturnType());
+                        }
+                    }
                 }
                 yield TypeKind.REFERENCE;
+            }
+            case FieldAccessExpr _ -> TypeKind.REFERENCE;
+            case ObjectCreationExpr _ -> TypeKind.REFERENCE;
+            case AssignExpr ae -> {
+                if (ae.getTarget() instanceof NameExpr ne && slots.contains(ne.getNameAsString())) {
+                    yield slots.typeKind(ne.getNameAsString());
+                }
+                yield inferTypeKind(ae.getValue(), slots, params);
             }
             default -> TypeKind.REFERENCE;
         };
