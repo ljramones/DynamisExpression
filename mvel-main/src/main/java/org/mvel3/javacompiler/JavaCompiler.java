@@ -149,7 +149,7 @@ public class JavaCompiler {
 
             return new CompilationResult( result );
         } catch (IOException e) {
-            throw new RuntimeException( e );
+            throw new KieMemoryCompilerException("javac compilation failed due to I/O error: " + e.getMessage(), e);
         }
     }
 

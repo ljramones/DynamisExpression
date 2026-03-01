@@ -296,7 +296,9 @@ public class MVELCompiler {
                 byte[] bytes = Files.readAllBytes(persistedFile);
                 classManager.define(Collections.singletonMap(newJavaFQN, bytes));
             } catch (Exception e) {
-                throw new RuntimeException("Failed to load persisted lambda class from " + persistedFile, e);
+                throw new ExpressionCompileException(
+                    "Failed to load persisted lambda class from " + persistedFile,
+                    null, e.getMessage(), e);
             }
         } else {
             log.info("Persisting lambda class {}", newJavaFQN);
