@@ -260,9 +260,7 @@ class ClassfileEvaluatorEmitterTest {
     @SuppressWarnings("unchecked")
     private <C, W, O> Evaluator<C, W, O> loadAndInstantiate(byte[] bytecode, TranspiledResult result) {
         try {
-            // Use defineHiddenClass directly — bypasses ClassManager's ASM-based
-            // MethodByteCodeExtractor which doesn't support JDK 25 classfile version (69).
-            // This will be cleaned up in Phase 3 when ASM is removed.
+            // Use defineHiddenClass directly.
             // The Lookup must be in the same package as the generated class (org.mvel3).
             MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(
                     Evaluator.class, MethodHandles.lookup());

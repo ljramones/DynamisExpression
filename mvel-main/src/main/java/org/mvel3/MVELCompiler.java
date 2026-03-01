@@ -74,7 +74,7 @@ public class MVELCompiler {
         // Handles ~98.6% of expressions. See ClassfileEvaluatorEmitter.canEmit() for
         // the 9 documented cases that fall through to javac.
         // Skip when Lambda persistence is enabled — persistence requires javac's classfile
-        // format for ASM-based deduplication. This will be unified when ASM is removed.
+        // format for ClassManager-based deduplication.
         if (!LambdaRegistry.PERSISTENCE_ENABLED && ClassfileEvaluatorEmitter.canEmit(transpiled)) {
             try {
                 byte[] bytecode = ClassfileEvaluatorEmitter.emit(info, transpiled);
@@ -103,8 +103,8 @@ public class MVELCompiler {
 
     /**
      * Load bytecode emitted by the Classfile API emitter via defineHiddenClass.
-     * Bypasses ClassManager's ASM-based deduplication (ASM doesn't support classfile v69).
-     * This will be unified with ClassManager in Phase 3 when ASM is removed.
+     * Bypasses ClassManager's deduplication since Classfile API-emitted classes
+     * don't go through javac/KieMemoryCompiler.
      */
     @SuppressWarnings("unchecked")
     private <T, K, R> Evaluator<T, K, R> loadClassfileEmitted(byte[] bytecode, CompilerParameters<T, K, R> info) {

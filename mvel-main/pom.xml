@@ -74,7 +74,6 @@
         <maven-gpg-plugin.version>3.1.0</maven-gpg-plugin.version>
 
         <!-- Dependency versions -->
-        <asm.version>9.7.1</asm.version>
         <antlr4.version>4.13.2</antlr4.version>
         <commons-lang3.version>3.20.0</commons-lang3.version>
         <javaparser.version>3.25.5-mvel3-SNAPSHOT</javaparser.version>
@@ -211,12 +210,6 @@
     </build>
 
     <dependencies>
-        <dependency>
-            <groupId>org.ow2.asm</groupId>
-            <artifactId>asm</artifactId>
-            <version>${asm.version}</version>
-        </dependency>
-
         <dependency>
             <groupId>org.antlr</groupId>
             <artifactId>antlr4-runtime</artifactId>
