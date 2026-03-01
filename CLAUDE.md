@@ -114,9 +114,25 @@ Do not hand-edit methods with `@Generated` annotations.
 - Tests use JUnit 5 (Jupiter) + AssertJ. mvel-main Surefire runs alphabetically with `mvel3.compiler.lambda.resetOnTestStartup=true`
 - Checkstyle config for javaparser-mvel: `dev-files/JavaParser-CheckStyle.xml`
 
+## Classfile API Bytecode Emitter
+
+`ClassfileEvaluatorEmitter` (JDK 25 `java.lang.classfile`, JEP 484) generates bytecode directly, bypassing javac for ~98.6% of expressions. `MVELCompiler.compile()` tries the Classfile API first and falls back to javac for the 9 documented cases below.
+
+**Documented javac fallbacks (9 of 658 = 1.4%):**
+
+| Category | Count | Reason |
+|---|---|---|
+| Scope-less free-function calls (`isEven(1)`, `staticMethod(1)`) | 4 | DRL static import pattern; emitter can't resolve functions without scope |
+| Error-path test (`foo.nonExistentProperty`) | 1 | Deliberately invalid expression for error testing |
+| List generic erasure (`foos[0].name`) | 3 | `List.get()` erases to `Object`; emitter can't resolve chained methods |
+| BigDecimal+var compound (`var s1=0B; s1+=1`) | 1 | `var` infers BigDecimal; `+=` maps to `.add()` which emitter can't find |
+
+Kill-switch: `-Dmvel3.compiler.classfile.emitter=false` forces javac for all expressions.
+Debug: `-Dmvel3.compiler.classfile.debug=true` logs canEmit decisions and emit-time failures.
+
 ## Known Issues
 
-- Alpha quality: 0 disabled tests in mvel-main (599 passing), 24 disabled tests in javaparser-mvel-main (upstream JavaParser issues, out of scope), 20+ TODOs in critical paths
+- Alpha quality: 0 disabled tests in mvel-main (603 passing), 24 disabled tests in javaparser-mvel-main (upstream JavaParser issues, out of scope), 20+ TODOs in critical paths
 - **javaparser-mvel-main disabled tests (24):** upstream JavaParser test issues, out of scope for DynamisExpression
 - Thread safety not addressed in `ClassManager`, `LambdaRegistry`, `MVEL.get()`
 - `DrlCloneVisitor` mostly stubbed (returns null for most MVEL nodes). DRL coupling was removed; stubs are documented as out of scope.

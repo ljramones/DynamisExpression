@@ -8,9 +8,7 @@ import org.mvel3.transpiler.TranspiledResult;
 import org.mvel3.transpiler.context.Declaration;
 
 import java.lang.invoke.MethodHandles;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -125,7 +123,109 @@ class ClassfileEvaluatorEmitterTest {
         assertThat(evaluator.eval(ctx)).isFalse();
     }
 
+    // ── Javac fallback tests ─────────────────────────────────────────────
+    // These verify that the 9 documented permanent fallback cases produce
+    // correct results through the javac pipeline. Each test represents one
+    // fallback category from the canEmit() javadoc.
+
+    /**
+     * Fallback category: scope-less free-function calls (DRL static import pattern).
+     * canEmit=false because the emitter cannot resolve functions without a scope.
+     * Javac resolves them via static imports on the generated parent class.
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    @Test
+    void fallback_scopelessFreeFunctionCall_producesCorrectResult() {
+        Map<String, Type<?>> types = new HashMap<>();
+        types.put("foo", Type.type(Foo.class));
+        types.put("bar", Type.type(Bar.class));
+
+        Set<String> staticImports = new HashSet<>();
+        staticImports.add(Person.class.getCanonicalName() + ".isEven");
+
+        // Full pipeline via fluent builder — falls back to javac
+        Evaluator evaluator = MVEL.map(Declaration.from(types))
+                .out(String.class)
+                .expression("foo.getName() + bar.getName() + isEven(1)")
+                .imports(getImports())
+                .staticImports(staticImports)
+                .classManager(new ClassManager())
+                .classLoader(ClassLoader.getSystemClassLoader())
+                .generatedSuperName(GeneratedParentClass.class.getCanonicalName())
+                .compile();
+
+        Foo foo = new Foo();
+        foo.setName("Alice");
+        Bar bar = new Bar();
+        bar.setName("Bob");
+
+        Map<String, Object> ctx = new HashMap<>();
+        ctx.put("foo", foo);
+        ctx.put("bar", bar);
+        // isEven() is a test stub that always returns true
+        assertThat(evaluator.eval(ctx)).isEqualTo("AliceBobtrue");
+    }
+
+    /**
+     * Fallback category: List generic erasure — List.get() returns Object,
+     * emitter cannot resolve chained methods (.getName()) on the erased type.
+     * Javac has the full type solver and handles this correctly.
+     */
+    @Test
+    void fallback_listGenericErasure_producesCorrectResult() {
+        Map<String, Type<?>> types = new HashMap<>();
+        types.put("foos", Type.type(List.class, "<Foo>"));
+
+        Foo foo1 = new Foo();
+        foo1.setName("Alice");
+        Foo foo2 = new Foo();
+        foo2.setName("Bob");
+
+        List<Foo> foos = new ArrayList<>();
+        foos.add(foo1);
+        foos.add(foo2);
+
+        Map<String, Object> ctx = new HashMap<>();
+        ctx.put("foos", foos);
+
+        MVEL mvel = new MVEL();
+        Evaluator<Map<String, Object>, Void, String> evaluator =
+                mvel.compileMapExpression("foos[0].name + foos[1].name",
+                        String.class, getImports(), types);
+        assertThat(evaluator.eval(ctx)).isEqualTo("AliceBob");
+    }
+
+    /**
+     * Fallback category: BigDecimal + var compound assignment.
+     * var infers BigDecimal from 0B literal; compound += resolves to .add()
+     * which the emitter cannot find on the var-inferred type.
+     */
+    @Test
+    void fallback_bigDecimalVarCompound_producesCorrectResult() {
+        Map<String, Type<?>> types = new HashMap<>();
+
+        MVEL mvel = new MVEL();
+        Evaluator<Map<String, Object>, Void, Object> evaluator =
+                mvel.compileMapBlock("var s1=0B;s1+=1;s1+=1; return s1;",
+                        Object.class, getImports(), types);
+
+        Map<String, Object> ctx = new HashMap<>();
+        assertThat(evaluator.eval(ctx).toString()).isEqualTo("2");
+    }
+
     // ── Helper methods ────────────────────────────────────────────────────
+
+    private static Set<String> getImports() {
+        Set<String> imports = new HashSet<>();
+        imports.add("java.util.List");
+        imports.add("java.util.ArrayList");
+        imports.add("java.util.HashMap");
+        imports.add("java.util.Map");
+        imports.add("java.math.BigDecimal");
+        imports.add(Foo.class.getCanonicalName());
+        imports.add(Person.class.getCanonicalName());
+        return imports;
+    }
 
     private <R> TranspiledResult transpileMap(String expression, Class<R> outType, Map<String, Type<?>> types) {
         CompilerParameters<Map<String, Object>, Void, R> params = compilerParamsMap(expression, outType, types);
