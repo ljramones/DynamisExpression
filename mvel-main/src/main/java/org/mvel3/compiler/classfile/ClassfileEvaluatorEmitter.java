@@ -12,6 +12,7 @@ import org.mvel3.ContextType;
 import org.mvel3.transpiler.TranspiledResult;
 import org.mvel3.transpiler.context.Declaration;
 
+import java.lang.classfile.ClassBuilder;
 import java.lang.classfile.ClassFile;
 import java.lang.classfile.CodeBuilder;
 import java.lang.classfile.Opcode;
@@ -115,14 +116,17 @@ public final class ClassfileEvaluatorEmitter {
         ClassDesc contextDesc = classDescForType(params.contextDeclaration().type());
         ClassDesc outputDesc = classDescForType(params.outType());
 
-        // Parse the eval method parameter type from the AST
+        // Parse the eval method parameter type from the Java Class (not the AST string).
+        // AST type strings use dots for inner classes (e.g. "Outer.Inner") but the JVM
+        // needs $ separators ("Outer$Inner"). classDescForType uses Class.descriptorString()
+        // which is always correct.
         Parameter evalParam = method.getParameter(0);
         Type paramType = evalParam.getType();
-        ClassDesc paramDesc = ClassfileTypeUtils.toClassDesc(paramType);
+        ClassDesc paramDesc = contextDesc;
 
-        // Parse the return type from the AST
+        // Return type: use classDescForType for correct inner class handling
         Type returnType = method.getType();
-        ClassDesc returnDesc = ClassfileTypeUtils.toClassDesc(returnType);
+        ClassDesc returnDesc = outputDesc;
 
         // Build the method type descriptor: (paramType) -> returnType
         MethodTypeDesc evalMethodType = MethodTypeDesc.of(returnDesc, paramDesc);
@@ -170,7 +174,89 @@ public final class ClassfileEvaluatorEmitter {
                         }
                 );
             }
+
+            // Static POJO setter helpers: __contexta(__context, v) { __context.setA(v); return v; }
+            emitStaticHelperMethods(cb, result, thisClass, params);
         });
+    }
+
+    /**
+     * Emit static helper methods for POJO property write-back.
+     * The transpiler generates methods like:
+     *   static public int __contexta(ContextType __context, int v) {
+     *       __context.setA(v); return v;
+     *   }
+     * We emit these as invokevirtual setter calls.
+     */
+    private static <C, W, O> void emitStaticHelperMethods(
+            ClassBuilder cb, TranspiledResult result, ClassDesc thisClass,
+            CompilerParameters<C, W, O> params) {
+
+        // Find all methods in the CompilationUnit
+        java.util.List<MethodDeclaration> allMethods = result.getUnit().findAll(MethodDeclaration.class);
+        for (MethodDeclaration helperMethod : allMethods) {
+            String name = helperMethod.getNameAsString();
+            if (!name.startsWith("__context") || name.equals("__context")) continue;
+            if (!helperMethod.isStatic()) continue;
+            if (helperMethod.getParameters().size() != 2) continue;
+
+            // Parse parameter and return types.
+            // Use the Java Class for the context type (handles inner class $ separators correctly).
+            Parameter valueParam = helperMethod.getParameter(1);
+            Type returnType = helperMethod.getType();
+
+            Class<?> contextClass = params.contextDeclaration().type().getClazz();
+            ClassDesc ctxParamDesc = classDescForJavaClass(contextClass);
+            ClassDesc valParamDesc = ClassfileTypeUtils.toClassDesc(valueParam.getType());
+            ClassDesc retDesc = ClassfileTypeUtils.toClassDesc(returnType);
+            TypeKind valKind = ClassfileTypeUtils.toTypeKind(valueParam.getType());
+
+            MethodTypeDesc helperMethodType = MethodTypeDesc.of(retDesc, ctxParamDesc, valParamDesc);
+
+            // Extract setter method name from the helper body:
+            // Body is: { __context.setA(v); return v; }
+            String setterName = null;
+            if (helperMethod.getBody().isPresent()) {
+                for (Statement stmt : helperMethod.getBody().get().getStatements()) {
+                    if (stmt instanceof ExpressionStmt es
+                            && es.getExpression() instanceof MethodCallExpr mce) {
+                        setterName = mce.getNameAsString();
+                        break;
+                    }
+                }
+            }
+            if (setterName == null) continue;
+
+            ClassDesc contextClassDesc = ctxParamDesc;
+            String finalSetterName = setterName;
+
+            cb.withMethodBody(
+                    name,
+                    helperMethodType,
+                    ClassFile.ACC_PUBLIC | ClassFile.ACC_STATIC,
+                    code -> {
+                        // __context.setA(v)
+                        code.aload(0); // __context (static method: slot 0)
+                        if (valKind == TypeKind.REFERENCE) {
+                            code.aload(1); // v
+                        } else {
+                            code.loadLocal(valKind, 1); // v (primitive: iload/lload/dload/fload)
+                        }
+                        code.invokevirtual(contextClassDesc, finalSetterName,
+                                MethodTypeDesc.of(CD_void, valParamDesc));
+
+                        // return v
+                        if (valKind == TypeKind.REFERENCE) {
+                            code.aload(1);
+                            code.areturn();
+                        } else {
+                            int valSlot = 1; // slot 1 for value param (slot 0 is context ref)
+                            code.loadLocal(valKind, valSlot);
+                            emitTypedReturn(code, valKind);
+                        }
+                    }
+            );
+        }
     }
 
     // ── Method body emission ──────────────────────────────────────────────
@@ -1090,6 +1176,12 @@ public final class ClassfileEvaluatorEmitter {
 
         String methodName = mce.getNameAsString();
 
+        // Scope-less __context* POJO setter helpers: __contexta(__context, a = 4)
+        if (mce.getScope().isEmpty() && methodName.startsWith("__context")) {
+            emitContextHelperCall(code, mce, slots, params);
+            return;
+        }
+
         // Map.get("key") pattern: scope.get(StringLiteral)
         if (mce.getScope().isPresent() && methodName.equals("get")
                 && mce.getArguments().size() == 1) {
@@ -1170,6 +1262,71 @@ public final class ClassfileEvaluatorEmitter {
 
         throw new UnsupportedOperationException(
                 "Unsupported method call: " + mce);
+    }
+
+    /**
+     * Emit a scope-less __context* POJO setter helper call.
+     * Pattern: __contexta(__context, a = 4) → invokestatic thisClass.__contexta(ContextType, int)int
+     * The AssignExpr argument both assigns to the local variable and pushes the value for the method arg.
+     */
+    private static <C, W, O> void emitContextHelperCall(
+            CodeBuilder code,
+            MethodCallExpr mce,
+            LocalSlotTable slots,
+            CompilerParameters<C, W, O> params) {
+
+        String helperName = mce.getNameAsString();
+
+        // Emit arguments: __context (arg 0) and the value expression (arg 1)
+        for (Expression arg : mce.getArguments()) {
+            emitExpression(code, arg, slots, params);
+        }
+
+        // Resolve the helper method descriptor.
+        // The helper is: static ReturnType __contextX(ContextType __context, ValueType v)
+        // Context type comes from the first arg (which is __context, a NameExpr in slot table).
+        // Value type comes from the second arg's inferred type.
+        ClassDesc contextClassDesc = classDescForJavaClass(params.contextDeclaration().type().getClazz());
+        TypeKind valueKind = inferTypeKind(mce.getArgument(1), slots, params);
+        ClassDesc valueDesc = typeKindToClassDesc(valueKind);
+
+        // The helper returns the same type as the value parameter
+        MethodTypeDesc helperMethodType = MethodTypeDesc.of(valueDesc, contextClassDesc, valueDesc);
+
+        // Compute thisClass from package + generated class name
+        ClassDesc thisClass = ClassDesc.of("org.mvel3." + params.generatedClassName());
+
+        code.invokestatic(thisClass, helperName, helperMethodType);
+    }
+
+    /**
+     * Convert a TypeKind to a ClassDesc for method descriptors.
+     */
+    private static ClassDesc typeKindToClassDesc(TypeKind kind) {
+        return switch (kind) {
+            case INT -> CD_int;
+            case LONG -> CD_long;
+            case DOUBLE -> CD_double;
+            case FLOAT -> CD_float;
+            case BOOLEAN -> CD_boolean;
+            case BYTE -> CD_byte;
+            case CHAR -> CD_char;
+            case SHORT -> CD_short;
+            default -> CD_Object;
+        };
+    }
+
+    /**
+     * Emit a type-appropriate return instruction for a primitive TypeKind.
+     */
+    private static void emitTypedReturn(CodeBuilder code, TypeKind kind) {
+        switch (kind) {
+            case INT, BOOLEAN, BYTE, CHAR, SHORT -> code.ireturn();
+            case LONG -> code.lreturn();
+            case DOUBLE -> code.dreturn();
+            case FLOAT -> code.freturn();
+            default -> code.areturn();
+        }
     }
 
     private static final ClassDesc CD_Math = ClassDesc.of("java.lang.Math");
@@ -1572,7 +1729,7 @@ public final class ClassfileEvaluatorEmitter {
                     + " with " + argCount + " arg(s)");
         }
 
-        ClassDesc scopeDesc = ClassDesc.of(scopeClass.getCanonicalName());
+        ClassDesc scopeDesc = classDescForJavaClass(scopeClass);
 
         // Emit receiver
         emitExpression(code, scopeName, slots, params);
@@ -1769,7 +1926,9 @@ public final class ClassfileEvaluatorEmitter {
         if (clazz.isArray()) {
             return classDescForJavaClass(clazz.getComponentType()).arrayType();
         }
-        return ClassDesc.of(clazz.getCanonicalName());
+        // Use descriptorString() for correct inner class handling ($-separated names).
+        // describeConstable() can return empty for some class loaders; descriptorString() never fails.
+        return ClassDesc.ofDescriptor(clazz.descriptorString());
     }
 
     // ── Assignment emission ───────────────────────────────────────────────
@@ -1897,7 +2056,11 @@ public final class ClassfileEvaluatorEmitter {
     }
 
     private static boolean isSupportedMethodCall(MethodCallExpr mce) {
-        if (mce.getScope().isEmpty()) return false;
+        // Scope-less __context* calls: POJO setter helpers generated by the transpiler
+        if (mce.getScope().isEmpty()) {
+            return mce.getNameAsString().startsWith("__context")
+                    && mce.getArguments().stream().allMatch(ClassfileEvaluatorEmitter::isSupportedExpression);
+        }
         if (!mce.getArguments().stream().allMatch(ClassfileEvaluatorEmitter::isSupportedExpression)) {
             return false;
         }
@@ -2048,6 +2211,11 @@ public final class ClassfileEvaluatorEmitter {
                 yield widenTypeKind(left, right);
             }
             case MethodCallExpr mce -> {
+                // Scope-less __context* helpers return the same type as their value argument
+                if (mce.getScope().isEmpty() && mce.getNameAsString().startsWith("__context")
+                        && mce.getArguments().size() == 2) {
+                    yield inferTypeKind(mce.getArgument(1), slots, params);
+                }
                 // Math static calls return double
                 if (mce.getScope().isPresent() && isStaticMathScope(mce.getScope().get())) {
                     yield TypeKind.DOUBLE;
@@ -2191,7 +2359,9 @@ public final class ClassfileEvaluatorEmitter {
             // Evaluator uses boxed types in generics
             return ClassfileTypeUtils.classDescFromName(clazz.getName());
         }
-        return ClassDesc.of(clazz.getCanonicalName());
+        // Use descriptorString() for correct inner class handling ($-separated names).
+        // describeConstable() can return empty for some class loaders; descriptorString() never fails.
+        return ClassDesc.ofDescriptor(clazz.descriptorString());
     }
 
     private static String boxedNameForPrimitive(PrimitiveType pt) {
