@@ -135,6 +135,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${maven-surefire-plugin.version}</version>
                 <configuration>
+                    <useModulePath>false</useModulePath>
                     <runOrder>alphabetical</runOrder>
                     <childDelegation>true</childDelegation>
                     <systemProperties>
