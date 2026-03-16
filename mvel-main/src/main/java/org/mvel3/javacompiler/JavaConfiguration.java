@@ -34,7 +34,7 @@ import java.util.Arrays;
 public class JavaConfiguration {
 
     // This should be in alphabetic order to search with BinarySearch
-    protected static final String[]  LANGUAGE_LEVELS = new String[]{"1.5", "1.6", "1.7", "1.8", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "9"};
+    protected static final String[]  LANGUAGE_LEVELS = new String[]{"1.5", "1.6", "1.7", "1.8", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "9"};
 
     public static final String JAVA_COMPILER_PROPERTY = "org.mvel.compiler";
     public static final String JAVA_LANG_LEVEL_PROPERTY = "org.mvel3.lnglevel";
@@ -68,9 +68,21 @@ public class JavaConfiguration {
             return "18";
         } else if (level.startsWith("19")) {
             return "19";
+        } else if (level.startsWith("20")) {
+            return "20";
+        } else if (level.startsWith("21")) {
+            return "21";
+        } else if (level.startsWith("22")) {
+            return "22";
+        } else if (level.startsWith("23")) {
+            return "23";
+        } else if (level.startsWith("24")) {
+            return "24";
+        } else if (level.startsWith("25")) {
+            return "25";
         }
 
-        return "11";
+        return "21";
     }
 
     public String getJavaLanguageLevel() {

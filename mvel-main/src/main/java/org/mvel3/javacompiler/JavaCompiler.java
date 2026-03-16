@@ -45,6 +45,7 @@ import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -120,7 +121,12 @@ public class JavaCompiler {
         try (StandardJavaFileManager jFileManager = compiler.getStandardFileManager(diagnostics, null, null)) {
             try {
                 jFileManager.setLocation(StandardLocation.CLASS_PATH, pSettings.getClasspathLocations());
-                jFileManager.setLocation(StandardLocation.CLASS_OUTPUT, Collections.singletonList(new File("target/classes")));
+                // Use a temporary directory for CLASS_OUTPUT instead of target/classes to prevent
+                // javac from detecting module-info.class and entering module mode, which would
+                // break in-memory compilation of transpiled sources.
+                File tempOutput = Files.createTempDirectory("mvel-compile").toFile();
+                tempOutput.deleteOnExit();
+                jFileManager.setLocation(StandardLocation.CLASS_OUTPUT, Collections.singletonList(tempOutput));
             } catch (IOException e) {
                 log.warn("Failed to set classpath on file manager. Compilation may fail: {}", e.getMessage());
             }
