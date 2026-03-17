@@ -8,9 +8,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Base64;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -48,27 +49,27 @@ public enum LambdaRegistry {
     }
 
     // LambdaKey -> entry (physical ID + optional persisted path)
-    private final Map<LambdaKey, RegistryEntry> entriesByKey = new HashMap<>();
+    private final Map<LambdaKey, RegistryEntry> entriesByKey = new ConcurrentHashMap<>();
 
     // hash -> LambdaKeys (group of conflicting hashes)
-    private final Map<Integer, List<LambdaKey>> hashToKeys = new HashMap<>();
+    private final Map<Integer, List<LambdaKey>> hashToKeys = new ConcurrentHashMap<>();
 
     // physical ID -> entry
-    private final Map<Integer, RegistryEntry> entriesByPhysicalId = new HashMap<>();
+    private final Map<Integer, RegistryEntry> entriesByPhysicalId = new ConcurrentHashMap<>();
 
     // logical ID -> physical ID
-    private final Map<Integer, Integer> logicalToPhysical = new HashMap<>();
+    private final Map<Integer, Integer> logicalToPhysical = new ConcurrentHashMap<>();
 
-    private int nextPhysicalId = 0;
+    private final AtomicInteger nextPhysicalId = new AtomicInteger(0);
 
-    private int nextLogicalId = 0;
+    private final AtomicInteger nextLogicalId = new AtomicInteger(0);
 
     private LambdaRegistry() {
         // singleton
     }
 
     public synchronized int getNextLogicalId() {
-        return nextLogicalId++;
+        return nextLogicalId.getAndIncrement();
     }
 
     public synchronized int registerLambda(int logicalId, LambdaKey key) {
@@ -82,7 +83,7 @@ public enum LambdaRegistry {
 
         RegistryEntry entry = entriesByKey.get(key);
         if (entry == null) {
-            entry = new RegistryEntry(key, nextPhysicalId++);
+            entry = new RegistryEntry(key, nextPhysicalId.getAndIncrement());
             entriesByKey.put(key, entry);
             entriesByPhysicalId.put(entry.physicalId, entry);
         } else {
@@ -197,8 +198,8 @@ public enum LambdaRegistry {
         entriesByKey.clear();
         entriesByPhysicalId.clear();
         logicalToPhysical.clear();
-        nextPhysicalId = 0;
-        nextLogicalId = 0;
+        nextPhysicalId.set(0);
+        nextLogicalId.set(0);
     }
 
     private void loadFromDisk() {
@@ -214,8 +215,8 @@ public enum LambdaRegistry {
             if (countersLine != null) {
                 String[] counters = countersLine.split("\\|", -1);
                 if (counters.length >= 2) {
-                    nextPhysicalId = parseIntSafe(counters[0], nextPhysicalId);
-                    nextLogicalId = parseIntSafe(counters[1], nextLogicalId);
+                    nextPhysicalId.set(parseIntSafe(counters[0], nextPhysicalId.get()));
+                    nextLogicalId.set(parseIntSafe(counters[1], nextLogicalId.get()));
                 }
             }
 
@@ -249,7 +250,7 @@ public enum LambdaRegistry {
                 hashToKeys.computeIfAbsent(key.hashCode(), h -> new ArrayList<>()).add(key);
                 maxPhysicalId = Math.max(maxPhysicalId, physicalId);
             }
-            nextPhysicalId = Math.max(nextPhysicalId, maxPhysicalId + 1);
+            nextPhysicalId.set(Math.max(nextPhysicalId.get(), maxPhysicalId + 1));
         } catch (IOException e) {
             throw new RuntimeException("Failed to load lambda registry from " + REGISTRY_FILE, e);
         }
@@ -261,7 +262,7 @@ public enum LambdaRegistry {
             try (BufferedWriter writer = Files.newBufferedWriter(REGISTRY_FILE, StandardCharsets.UTF_8)) {
                 writer.write(REGISTRY_VERSION);
                 writer.newLine();
-                writer.write(nextPhysicalId + "|" + nextLogicalId);
+                writer.write(nextPhysicalId.get() + "|" + nextLogicalId.get());
                 writer.newLine();
 
                 List<RegistryEntry> entries = entriesByPhysicalId.values().stream()
@@ -300,7 +301,7 @@ public enum LambdaRegistry {
 
         private final LambdaKey key;
         private final int physicalId;
-        private Path path;
+        private volatile Path path;
 
         private RegistryEntry(LambdaKey key, int physicalId) {
             this.key = key;

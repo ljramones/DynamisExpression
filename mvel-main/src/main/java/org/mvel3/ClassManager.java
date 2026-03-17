@@ -6,6 +6,7 @@ import org.mvel3.methodutils.Murmur3F;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
@@ -18,7 +19,7 @@ public class ClassManager {
 
     private Map<ClassEntry, ClassEntry> entries;
 
-    private Supplier<MethodHandles.Lookup> lookupSupplier;
+    private volatile Supplier<MethodHandles.Lookup> lookupSupplier;
 
     public ClassManager() {
         this(() -> MethodHandles.lookup());
@@ -35,7 +36,7 @@ public class ClassManager {
     }
 
     public Map<String, Class<?>> getClasses() {
-        return classes;
+        return Collections.unmodifiableMap(classes);
     }
 
     public Supplier<Lookup> getLookupSupplier() {
